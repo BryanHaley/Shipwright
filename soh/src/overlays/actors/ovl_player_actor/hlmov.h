@@ -1,6 +1,6 @@
 #pragma once
 
-#include "z64.h"
+#include "hlmov_bridge.h"
 #include <math.h>
 
 #ifdef __cplusplus
@@ -148,11 +148,6 @@ extern int nanmask;
 #define	YAW		y
 // fall over
 #define	ROLL	z 
-
-// Z64 -> HL types
-typedef Vec3f vec3_t;
-typedef int qboolean;
-typedef int byte;
 
 float cl_bob = 0.01;
 float cl_bobcycle = 0.8;
@@ -448,10 +443,6 @@ struct playermove_s
 	const char		*(*PM_TraceTexture) ( int ground, vec3_t vstart, vec3_t vend );
 	void			(*PM_PlaybackEventFull) ( int flags, int clientindex, unsigned short eventindex, float delay, float *origin, float *angles, float fparam1, float fparam2, int iparam1, int iparam2, int bparam1, int bparam2 );
 };
-
-void PM_Init( struct playermove_s *ppmove );
-void PM_Move ( struct playermove_s *ppmove, int server );
-char PM_FindTextureType( char *name );
 
 #ifdef __cplusplus
 #undef this

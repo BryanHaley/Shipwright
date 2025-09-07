@@ -34,6 +34,8 @@
 #include "soh/OTRGlobals.h"
 #include "soh/ResourceManagerHelpers.h"
 
+#include "hlmov_bridge.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -12832,6 +12834,13 @@ s16 func_8084ABD8(PlayState* play, Player* this, s32 arg2, s16 arg3) {
         this->actor.world.pos.x += (relX2 * movementSpeed) + this->actor.colChkInfo.displacement.x;
         this->actor.world.pos.z += (relY2 * movementSpeed) + this->actor.colChkInfo.displacement.z;
     }
+
+    if (!pmove)
+    {
+        PM_Init();
+    }
+
+    PM_Move(pmove, 1, play, this->actor.world.pos);
 
     this->unk_6AE_rotFlags |= UNK6AE_ROT_FOCUS_Y;
     return func_80836AB8(this, (play->shootingGalleryStatus != 0) || func_8002DD78(this) || func_808334B4(this)) - arg3;

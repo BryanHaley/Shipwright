@@ -1,7 +1,21 @@
 #include "hlmov.h"
-#include <stdlib.h>
+#include "hlmov_bridge.h"
 
-playermove_t *pmove = NULL;
+#include "functions.h"
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+struct playermove_s pmove_s;
+struct movevars_s movevars_singleton;
+
+struct playermove_s *pmove = NULL;
+struct movevars_s *movevars = NULL;
+
+// TEMP
+PlayState* play = NULL;
+
 int g_onladder = 0;
 
 vec3_t vec3_origin = {0,0,0};
@@ -173,9 +187,58 @@ qboolean PM_AddToTouched(pmtrace_t tr, vec3_t impactvelocity)
 	return true;
 }
 
-pmtrace_t PM_PlayerTrace(vec3_t start, vec3_t end, int traceFlags, int ignore_pe )
+pmtrace_t PM_PlayerTrace(vec3_t start, vec3_t end, int traceFlags, int ignore_pe)
 {
-    // TODO: Do a z64 trace and adapt the results
+    pmtrace_t tr;
+    memset(&tr, 0, sizeof(pmtrace_t));
+
+    vec3_t hitPos;
+    CollisionPoly* poly = NULL;
+    int bgId = -1;
+
+    // Perform the line trace (check wall, floor, and ceiling)
+    int hit = BgCheck_EntityLineTest1(&play->colCtx, &start, &end, &hitPos, &poly, 1, 1, 1, 0, &bgId);
+
+    if (hit && poly != NULL) {
+        tr.fraction = sqrtf(
+            (hitPos.x - start.x) * (hitPos.x - start.x) +
+            (hitPos.y - start.y) * (hitPos.y - start.y) +
+            (hitPos.z - start.z) * (hitPos.z - start.z)
+        ) / sqrtf(
+            (end.x - start.x) * (end.x - start.x) +
+            (end.y - start.y) * (end.y - start.y) +
+            (end.z - start.z) * (end.z - start.z)
+        );
+        tr.endpos.x = hitPos.x;
+        tr.endpos.y = hitPos.y;
+        tr.endpos.z = hitPos.z;
+
+        // Fill in the plane normal from the poly
+        tr.plane.normal.x = COLPOLY_GET_NORMAL(poly->normal.x);
+        tr.plane.normal.y = COLPOLY_GET_NORMAL(poly->normal.y);
+        tr.plane.normal.z = COLPOLY_GET_NORMAL(poly->normal.z);
+
+        // Check if start or end is inside solid
+        int startSolid = BgCheck_PosInStaticBoundingBox(&play->colCtx, &start);
+        int endSolid = BgCheck_PosInStaticBoundingBox(&play->colCtx, &end);
+        tr.startsolid = (startSolid != 0) ? 1 : 0;
+        tr.allsolid = (tr.startsolid && (endSolid != 0)) ? 1 : 0;
+
+        tr.ent = 0;     // Set to bgId or 0 for world /// TODO
+    } else {
+        // No hit, fraction is 1, endpos is end
+        tr.fraction = 1.0f;
+        tr.endpos = end;
+        tr.plane.normal.x = 0.0f;
+        tr.plane.normal.y = 0.0f;
+        tr.plane.normal.z = 1.0f;
+        tr.startsolid = 0;
+        tr.allsolid = 0;
+        tr.ent = 0;
+    }
+
+    tr.inopen = 1;
+    return tr;
 }
 
 qboolean PM_CheckWater ()
@@ -1217,7 +1280,7 @@ void PM_PlayerMove ( qboolean server )
 	physent_t *pLadder = NULL;
 
 	// Are we running server code?
-	pmove->server = server;                
+	pmove->server = server;
 
 	// Adjust speeds etc.
 	PM_CheckParamters();
@@ -1226,7 +1289,7 @@ void PM_PlayerMove ( qboolean server )
 	pmove->numtouch = 0;                    
 
 	// # of msec to apply movement
-	pmove->frametime = pmove->cmd.msec * 0.001;    
+	/// pmove->frametime = pmove->cmd.msec * 0.001; // TODO: Grab actual frametime
 
 	PM_ReduceTimers();
 
@@ -1488,11 +1551,17 @@ void PM_PlayerMove ( qboolean server )
 	}
 }
 
-void PM_Move ( struct playermove_s *ppmove, int server )
+void PM_Move ( struct playermove_s *ppmove, int server, PlayState *playState, vec3_t playerPos )
 {
 	/// assert( pm_shared_initialized );
 
 	pmove = ppmove;
+
+    // Set current play state
+    play = playState;
+
+    // Sync position with OoT
+    VectorCopy( playerPos, pmove->origin );
 	
 	PM_PlayerMove( ( server != 0 ) ? true : false );
 
@@ -1510,4 +1579,42 @@ void PM_Move ( struct playermove_s *ppmove, int server )
 	{
 		pmove->friction = 1.0f;
 	}
+}
+
+void PM_Init()
+{
+    if (pmove)
+    {
+        return;
+    }
+    movevars = &movevars_singleton;
+    pmove = &pmove_s;
+    memset(&pmove_s, 0, sizeof(pmove_s));
+    memset(&movevars_singleton, 0, sizeof(movevars_singleton));
+
+    pmove_s.movevars = movevars;
+    pmove_s.PM_PlayerTrace = PM_PlayerTrace;
+    pmove_s.Con_DPrintf = printf;
+    pmove_s.Con_Printf = printf;
+
+    movevars_singleton.gravity = sv_gravity;
+    movevars_singleton.stopspeed = sv_stopspeed;
+    movevars_singleton.maxspeed = sv_maxspeed;
+    movevars_singleton.accelerate = sv_accelerate;
+    movevars_singleton.airaccelerate = sv_airaccelerate;
+    movevars_singleton.wateraccelerate = sv_wateraccelerate;
+    movevars_singleton.friction = sv_friction;
+    movevars_singleton.edgefriction = sv_edgefriction;
+    movevars_singleton.waterfriction = sv_waterfriction;
+    movevars_singleton.bounce = sv_bounce;
+    movevars_singleton.stepsize = sv_stepsize;
+    movevars_singleton.maxvelocity = sv_maxvelocity;
+    movevars_singleton.rollangle = sv_rollangle;
+    movevars_singleton.rollspeed = sv_rollspeed;
+
+    // testing
+    pmove_s.onground = -1;
+    pmove_s.frametime = 1.0f / 20.0f;
+    pmove_s.movetype = MOVETYPE_WALK;
+    pmove_s.gravity = sv_gravity;
 }
