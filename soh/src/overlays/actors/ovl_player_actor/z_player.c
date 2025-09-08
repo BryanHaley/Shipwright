@@ -44,6 +44,9 @@
 // This is called "adjusted" for now.
 #define PLAYER_ANIM_ADJUSTED_SPEED (2.0f / 3.0f)
 
+// TEMP
+int inFirstPerson = 0;
+
 typedef enum {
     /* 0x00 */ KNOB_ANIM_ADULT_L,
     /* 0x01 */ KNOB_ANIM_CHILD_L,
@@ -12099,8 +12102,11 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
                 this->actor.velocity.z += this->pushedSpeed * Math_CosS(this->pushedYaw);
             }
 
-            Actor_UpdatePos(&this->actor);
-            Player_ProcessSceneCollision(play, this);
+            if (!inFirstPerson)
+            {
+                Actor_UpdatePos(&this->actor);
+                Player_ProcessSceneCollision(play, this);
+            }
         } else {
             sFloorType = 0;
             this->floorProperty = 0;
@@ -12717,6 +12723,8 @@ void Player_Destroy(Actor* thisx, PlayState* play) {
     ResourceMgr_UnregisterSkeleton(&this->upperSkelAnime);
 }
 
+#include <stdio.h>
+
 // first person manipulate player actor
 s16 func_8084ABD8(PlayState* play, Player* this, s32 arg2, s16 arg3) {
     s32 temp1 = 0;
@@ -12855,14 +12863,23 @@ s16 func_8084ABD8(PlayState* play, Player* this, s32 arg2, s16 arg3) {
 
         // Buttons (bitmask)
         cmd.buttons = 0;
-        cmd.buttons |= (IN_USE     * CHECK_BTN_ALL(sControlInput->rel.button, BTN_A) ? 1 : 0);
-        cmd.buttons |= (IN_ATTACK  * CHECK_BTN_ALL(sControlInput->rel.button, BTN_B) ? 1 : 0);
-        cmd.buttons |= (IN_JUMP    * CHECK_BTN_ALL(sControlInput->rel.button, BTN_L) ? 1 : 0);
-        cmd.buttons |= (IN_DUCK    * CHECK_BTN_ALL(sControlInput->rel.button, BTN_Z) ? 1 : 0);
+        //cmd.buttons |= (IN_USE     * (CHECK_BTN_ALL(sControlInput->rel.button, BTN_A) ? 1 : 0));
+        cmd.buttons |= (IN_ATTACK  * (CHECK_BTN_ALL(sControlInput->rel.button, BTN_B) ? 1 : 0));
+        cmd.buttons |= (IN_JUMP    * (CHECK_BTN_ALL(sControlInput->rel.button, BTN_L) ? 1 : 0));
+        //cmd.buttons |= (IN_DUCK    * (CHECK_BTN_ALL(sControlInput->rel.button, BTN_Z) ? 1 : 0));
         cmd.buttons |= (IN_FORWARD * sControlInput->rel.stick_y > 0 ? 1 : 0);
         cmd.buttons |= (IN_BACK    * sControlInput->rel.stick_y < 0 ? 1 : 0);
         cmd.buttons |= (IN_LEFT    * sControlInput->rel.stick_x < 0 ? 1 : 0);
         cmd.buttons |= (IN_RIGHT   * sControlInput->rel.stick_x > 0 ? 1 : 0);
+
+        // Testing
+        //cmd.buttons |= IN_FORWARD;
+        //cmd.forwardmove = 320;
+        inFirstPerson = 1;
+        if (cmd.buttons & IN_JUMP)
+        {
+            printf("Jump\n");
+        }
 
         // Timing
         cmd.msec = 50; // Duration of this command in ms

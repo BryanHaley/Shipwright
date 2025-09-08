@@ -201,23 +201,23 @@ pmtrace_t PM_PlayerTrace(vec3_t start, vec3_t end, int traceFlags, int ignore_pe
     vec3_t end_oot = v_goldsrc_to_oot(end);
 
     // Perform the line trace (check wall, floor, and ceiling)
-    int hit = BgCheck_EntityLineTest1(&play->colCtx, &start_oot, &end_oot, &hitPos, &poly, 1, 1, 1, 0, &bgId);
+    int hit = BgCheck_EntityLineTest1(&play->colCtx, &start_oot, &end_oot, &hitPos, &poly, 1, 1, 1, 1, &bgId);
+
+    vec3_t hitPos_gs = v_oot_to_goldsrc(hitPos);
 
     if (hit && poly != NULL) {
         tr.fraction = sqrtf(
-            (hitPos.x - start.x) * (hitPos.x - start.x) +
-            (hitPos.y - start.y) * (hitPos.y - start.y) +
-            (hitPos.z - start.z) * (hitPos.z - start.z)
+            (hitPos_gs.x - start.x) * (hitPos_gs.x - start.x) +
+            (hitPos_gs.y - start.y) * (hitPos_gs.y - start.y) +
+            (hitPos_gs.z - start.z) * (hitPos_gs.z - start.z)
         ) / sqrtf(
             (end.x - start.x) * (end.x - start.x) +
             (end.y - start.y) * (end.y - start.y) +
             (end.z - start.z) * (end.z - start.z)
         );
-        tr.endpos.x = hitPos.x;
-        tr.endpos.y = hitPos.y;
-        tr.endpos.z = hitPos.z;
-
-        tr.endpos = v_oot_to_goldsrc(tr.endpos);
+        tr.endpos.x = hitPos_gs.x;
+        tr.endpos.y = hitPos_gs.y;
+        tr.endpos.z = hitPos_gs.z;
 
         // Fill in the plane normal from the poly
         tr.plane.normal.x = COLPOLY_GET_NORMAL(poly->normal.x);
@@ -225,12 +225,15 @@ pmtrace_t PM_PlayerTrace(vec3_t start, vec3_t end, int traceFlags, int ignore_pe
         tr.plane.normal.z = COLPOLY_GET_NORMAL(poly->normal.z);
 
         tr.plane.normal = v_oot_to_goldsrc(tr.plane.normal);
+        // VectorNormalize(&tr.plane.normal);
 
         // Check if start or end is inside solid
         int startSolid = BgCheck_PosInStaticBoundingBox(&play->colCtx, &start_oot);
         int endSolid = BgCheck_PosInStaticBoundingBox(&play->colCtx, &end_oot);
         tr.startsolid = (startSolid != 0) ? 1 : 0;
         tr.allsolid = (tr.startsolid && (endSolid != 0)) ? 1 : 0;
+        //tr.startsolid = 0;
+        //tr.allsolid = 0;
 
         tr.ent = bgId;     // Set to bgId or 0 for world
     } else {
@@ -319,13 +322,7 @@ qboolean PM_CheckWater ()
 
 void PM_CatagorizePosition (void)
 {
-    // testing
-    pmove->onground = 0;
-    pmove->waterjumptime = 0;
-    pmove->waterlevel = 0;
-    return;
-
-	vec3_t		point;
+    vec3_t		point;
 	pmtrace_t		tr;
 
 // if the player hull point one unit down is solid, the player
@@ -376,7 +373,7 @@ void PM_CatagorizePosition (void)
 	}
 }
 
-void PM_CatagorizePositionZ64 (void)
+/*void PM_CatagorizePosition (void)
 {
     // testing
     pmove->onground = 0;
@@ -411,14 +408,14 @@ void PM_CatagorizePositionZ64 (void)
             // Snap to floor if not in deep water and not starting in solid
             if (pmove->onground != -1) {
                 pmove->waterjumptime = 0;
-                if (pmove->waterlevel < 2 /*&& !tr.startsolid && !tr.allsolid*/)
+                if (pmove->waterlevel < 2 && !tr.startsolid && !tr.allsolid)
                     pmove->origin.y = floorZ;
             }
         } else {
             pmove->onground = -1;
         }
     }
-}
+}*/
 
 void PM_DropPunchAngle ( vec3_t punchangle )
 {
@@ -661,7 +658,7 @@ void PM_Jump (void)
 		return;
 	}
 
-	tfc = atoi( pmove->PM_Info_ValueForKey( pmove->physinfo, "tfc" ) ) == 1 ? true : false;
+	// tfc = atoi( pmove->PM_Info_ValueForKey( pmove->physinfo, "tfc" ) ) == 1 ? true : false;
 
 	// Spy that's feigning death cannot jump
 	/*if ( tfc && 
@@ -744,7 +741,7 @@ void PM_Jump (void)
 	}
 
 	// See if user can super long jump?
-	cansuperjump = atoi( pmove->PM_Info_ValueForKey( pmove->physinfo, "slj" ) ) == 1 ? true : false;
+	// cansuperjump = atoi( pmove->PM_Info_ValueForKey( pmove->physinfo, "slj" ) ) == 1 ? true : false; /// TODO: hover boots? item?
 
 	// Acclerate upward
 	// If we are ducking...
@@ -1172,7 +1169,7 @@ void PM_WalkMove ()
 	trace = pmove->PM_PlayerTrace (pmove->origin, dest, PM_NORMAL, -1 );
 	// If we made it all the way, then copy trace end
 	//  as new player position.
-	if (/*trace.fraction == 1*/ 1)
+	if (trace.fraction == 1)
 	{
 		VectorCopy (trace.endpos, pmove->origin);
 		return;
@@ -1370,7 +1367,7 @@ void PM_PlayerMove ( qboolean server )
 	if ( pmove->spectator || pmove->iuser1 > 0 )
 	{
 		PM_SpectatorMove();
-		PM_CatagorizePositionZ64();
+		PM_CatagorizePosition();
 		return;
 	}
     */
@@ -1387,7 +1384,7 @@ void PM_PlayerMove ( qboolean server )
     */
 
 	// Now that we are "unstuck", see where we are ( waterlevel and type, pmove->onground ).
-	PM_CatagorizePositionZ64();
+	PM_CatagorizePosition();
 
 	// Store off the starting water level
 	pmove->oldwaterlevel = pmove->waterlevel;
@@ -1535,7 +1532,7 @@ void PM_PlayerMove ( qboolean server )
 			VectorSubtract (pmove->velocity, pmove->basevelocity, pmove->velocity);
 
 			// Get a final position
-			PM_CatagorizePositionZ64();
+			PM_CatagorizePosition();
 		}
 		else */
 
@@ -1576,7 +1573,7 @@ void PM_PlayerMove ( qboolean server )
 			}
 
 			// Set final flags.
-			PM_CatagorizePositionZ64();
+			PM_CatagorizePosition();
 
 			// Now pull the base velocity back out.
 			// Base velocity is set if you are on a moving object, like
