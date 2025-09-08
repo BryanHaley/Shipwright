@@ -85,17 +85,18 @@ static void VectorMA (vec3_t va, double scale, vec3_t vb, vec3_t vc)
 	vc.z = va.z + scale*vb.z;
 }
 
-static float VectorNormalize(vec3_t v)
+static float VectorNormalize(vec3_t *v)
 {
-    float ilength = (float)sqrt(DotProduct(v, v));
+    float ilength = (float)sqrt(DotProduct(*v, *v));
+    float magnitude = ilength;
     if (ilength)
     {
         ilength = 1.0f / ilength;
-        v.x *= ilength;
-        v.y *= ilength;
-        v.z *= ilength;
+        v->x *= ilength;
+        v->y *= ilength;
+        v->z *= ilength;
     }
-    return ilength;
+    return magnitude;
 }
 
 float PM_CalcRoll (vec3_t angles, vec3_t velocity, float rollangle, float rollspeed )
@@ -196,8 +197,11 @@ pmtrace_t PM_PlayerTrace(vec3_t start, vec3_t end, int traceFlags, int ignore_pe
     CollisionPoly* poly = NULL;
     int bgId = -1;
 
+    vec3_t start_oot = v_goldsrc_to_oot(start);
+    vec3_t end_oot = v_goldsrc_to_oot(end);
+
     // Perform the line trace (check wall, floor, and ceiling)
-    int hit = BgCheck_EntityLineTest1(&play->colCtx, &start, &end, &hitPos, &poly, 1, 1, 1, 0, &bgId);
+    int hit = BgCheck_EntityLineTest1(&play->colCtx, &start_oot, &end_oot, &hitPos, &poly, 1, 1, 1, 0, &bgId);
 
     if (hit && poly != NULL) {
         tr.fraction = sqrtf(
@@ -213,18 +217,22 @@ pmtrace_t PM_PlayerTrace(vec3_t start, vec3_t end, int traceFlags, int ignore_pe
         tr.endpos.y = hitPos.y;
         tr.endpos.z = hitPos.z;
 
+        tr.endpos = v_oot_to_goldsrc(tr.endpos);
+
         // Fill in the plane normal from the poly
         tr.plane.normal.x = COLPOLY_GET_NORMAL(poly->normal.x);
         tr.plane.normal.y = COLPOLY_GET_NORMAL(poly->normal.y);
         tr.plane.normal.z = COLPOLY_GET_NORMAL(poly->normal.z);
 
+        tr.plane.normal = v_oot_to_goldsrc(tr.plane.normal);
+
         // Check if start or end is inside solid
-        int startSolid = BgCheck_PosInStaticBoundingBox(&play->colCtx, &start);
-        int endSolid = BgCheck_PosInStaticBoundingBox(&play->colCtx, &end);
+        int startSolid = BgCheck_PosInStaticBoundingBox(&play->colCtx, &start_oot);
+        int endSolid = BgCheck_PosInStaticBoundingBox(&play->colCtx, &end_oot);
         tr.startsolid = (startSolid != 0) ? 1 : 0;
         tr.allsolid = (tr.startsolid && (endSolid != 0)) ? 1 : 0;
 
-        tr.ent = 0;     // Set to bgId or 0 for world /// TODO
+        tr.ent = bgId;     // Set to bgId or 0 for world
     } else {
         // No hit, fraction is 1, endpos is end
         tr.fraction = 1.0f;
@@ -311,6 +319,12 @@ qboolean PM_CheckWater ()
 
 void PM_CatagorizePosition (void)
 {
+    // testing
+    pmove->onground = 0;
+    pmove->waterjumptime = 0;
+    pmove->waterlevel = 0;
+    return;
+
 	vec3_t		point;
 	pmtrace_t		tr;
 
@@ -362,11 +376,55 @@ void PM_CatagorizePosition (void)
 	}
 }
 
+void PM_CatagorizePositionZ64 (void)
+{
+    // testing
+    pmove->onground = 0;
+    pmove->waterjumptime = 0;
+    pmove->waterlevel = 0;
+    return;
+
+    vec3_t point;
+    pmtrace_t tr;
+
+    // Check water level/type first
+    PM_CheckWater();
+
+    if (pmove->velocity.z > 180)   // Shooting up really fast.  Definitely not on ground.
+    {
+        pmove->onground = -1;
+    }
+    else
+    {
+        // Use BgCheck_EntityRaycastFloor3 to find the floor directly below the player
+        CollisionPoly* poly = NULL;
+        int bgId = -1;
+        vec3_t oot_origin = v_goldsrc_to_oot(pmove->origin);
+        float floorZ = BgCheck_EntityRaycastFloor3(&play->colCtx, &poly, &bgId, &oot_origin);
+
+        if (poly != NULL && floorZ != BGCHECK_Y_MIN && (pmove->origin.z - floorZ) <= 2.0f) {
+            // If the floor is too steep, not on ground
+            if (COLPOLY_GET_NORMAL(poly->normal.y) < 0.7f)
+                pmove->onground = -1;
+            else
+                pmove->onground = bgId;
+            // Snap to floor if not in deep water and not starting in solid
+            if (pmove->onground != -1) {
+                pmove->waterjumptime = 0;
+                if (pmove->waterlevel < 2 /*&& !tr.startsolid && !tr.allsolid*/)
+                    pmove->origin.y = floorZ;
+            }
+        } else {
+            pmove->onground = -1;
+        }
+    }
+}
+
 void PM_DropPunchAngle ( vec3_t punchangle )
 {
 	float	len;
 	
-	len = VectorNormalize ( punchangle );
+	len = VectorNormalize ( &punchangle );
 	len -= (10.0 + len * 0.5) * pmove->frametime;
 	len = max( len, 0.0 );
 	VectorScale ( punchangle, len, punchangle);
@@ -1063,15 +1121,15 @@ void PM_WalkMove ()
 	pmove->forward.z = 0;
 	pmove->right.z   = 0;
 	
-	VectorNormalize (pmove->forward);  // Normalize remainder of vectors.
-	VectorNormalize (pmove->right);    // 
+	VectorNormalize (&pmove->forward);  // Normalize remainder of vectors.
+	VectorNormalize (&pmove->right);    // 
     
     wishvel.x = pmove->forward.x*fmove + pmove->right.x*smove;
     wishvel.y = pmove->forward.y*fmove + pmove->right.y*smove;
 	wishvel.z = 0;             // Zero out z part of velocity
 
 	VectorCopy (wishvel, wishdir);   // Determine maginitude of speed of move
-	wishspeed = VectorNormalize(wishdir);
+	wishspeed = VectorNormalize(&wishdir);
 
 //
 // Clamp to server defined max speed
@@ -1114,7 +1172,7 @@ void PM_WalkMove ()
 	trace = pmove->PM_PlayerTrace (pmove->origin, dest, PM_NORMAL, -1 );
 	// If we made it all the way, then copy trace end
 	//  as new player position.
-	if (trace.fraction == 1)
+	if (/*trace.fraction == 1*/ 1)
 	{
 		VectorCopy (trace.endpos, pmove->origin);
 		return;
@@ -1207,7 +1265,7 @@ void PM_AirAccelerate (vec3_t wishdir, float wishspeed, float accel)
 		return;
 
 	// Cap speed
-	//wishspd = VectorNormalize (pmove->wishveloc);
+	//wishspd = VectorNormalize (&pmove->wishveloc);
 	
 	if (wishspd > 30)
 		wishspd = 30;
@@ -1247,8 +1305,8 @@ void PM_AirMove (void)
 	pmove->forward.z = 0;
 	pmove->right.z   = 0;
 	// Renormalize
-	VectorNormalize (pmove->forward);
-	VectorNormalize (pmove->right);
+	VectorNormalize (&pmove->forward);
+	VectorNormalize (&pmove->right);
 
 	// Determine x and y parts of velocity
 	wishvel.x = pmove->forward.x*fmove + pmove->right.x*smove;
@@ -1258,7 +1316,7 @@ void PM_AirMove (void)
 
 	 // Determine maginitude of speed of move
 	VectorCopy (wishvel, wishdir);  
-	wishspeed = VectorNormalize(wishdir);
+	wishspeed = VectorNormalize(&wishdir);
 
 	// Clamp to server defined max speed
 	if (wishspeed > pmove->maxspeed)
@@ -1312,7 +1370,7 @@ void PM_PlayerMove ( qboolean server )
 	if ( pmove->spectator || pmove->iuser1 > 0 )
 	{
 		PM_SpectatorMove();
-		PM_CatagorizePosition();
+		PM_CatagorizePositionZ64();
 		return;
 	}
     */
@@ -1329,7 +1387,7 @@ void PM_PlayerMove ( qboolean server )
     */
 
 	// Now that we are "unstuck", see where we are ( waterlevel and type, pmove->onground ).
-	PM_CatagorizePosition();
+	PM_CatagorizePositionZ64();
 
 	// Store off the starting water level
 	pmove->oldwaterlevel = pmove->waterlevel;
@@ -1477,7 +1535,7 @@ void PM_PlayerMove ( qboolean server )
 			VectorSubtract (pmove->velocity, pmove->basevelocity, pmove->velocity);
 
 			// Get a final position
-			PM_CatagorizePosition();
+			PM_CatagorizePositionZ64();
 		}
 		else */
 
@@ -1518,7 +1576,7 @@ void PM_PlayerMove ( qboolean server )
 			}
 
 			// Set final flags.
-			PM_CatagorizePosition();
+			PM_CatagorizePositionZ64();
 
 			// Now pull the base velocity back out.
 			// Base velocity is set if you are on a moving object, like
@@ -1551,11 +1609,12 @@ void PM_PlayerMove ( qboolean server )
 	}
 }
 
-void PM_Move ( struct playermove_s *ppmove, int server, PlayState *playState, vec3_t playerPos )
+vec3_t PM_Move ( struct playermove_s *ppmove, int server, PlayState *playState, vec3_t playerPos, usercmd_t cmd )
 {
 	/// assert( pm_shared_initialized );
 
 	pmove = ppmove;
+    pmove->cmd = cmd;
 
     // Set current play state
     play = playState;
@@ -1579,6 +1638,8 @@ void PM_Move ( struct playermove_s *ppmove, int server, PlayState *playState, ve
 	{
 		pmove->friction = 1.0f;
 	}
+
+    return pmove->origin;
 }
 
 void PM_Init()
@@ -1613,8 +1674,9 @@ void PM_Init()
     movevars_singleton.rollspeed = sv_rollspeed;
 
     // testing
-    pmove_s.onground = -1;
+    pmove_s.onground = 0;
     pmove_s.frametime = 1.0f / 20.0f;
     pmove_s.movetype = MOVETYPE_WALK;
-    pmove_s.gravity = sv_gravity;
+    pmove_s.gravity = 1.0f;
+    pmove_s.maxspeed = sv_maxspeed;
 }

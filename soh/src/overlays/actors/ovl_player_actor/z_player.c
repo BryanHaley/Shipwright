@@ -12831,16 +12831,54 @@ s16 func_8084ABD8(PlayState* play, Player* this, s32 arg2, s16 arg3) {
         f32 distance = sqrtf((relX2 * relX2) + (relY2 * relY2)) * movementSpeed;
         func_8084029C(this, distance / 4.5f);
 
-        this->actor.world.pos.x += (relX2 * movementSpeed) + this->actor.colChkInfo.displacement.x;
-        this->actor.world.pos.z += (relY2 * movementSpeed) + this->actor.colChkInfo.displacement.z;
-    }
+        // this->actor.world.pos.x += (relX2 * movementSpeed) + this->actor.colChkInfo.displacement.x;
+        // this->actor.world.pos.z += (relY2 * movementSpeed) + this->actor.colChkInfo.displacement.z;
 
-    if (!pmove)
-    {
-        PM_Init();
-    }
+        // Example: Mapping input to cmd
+        // This assumes you have an input struct with axes and button states
 
-    PM_Move(pmove, 1, play, this->actor.world.pos);
+        usercmd_t cmd;
+        memset(&cmd, 0, sizeof(cmd));
+
+        // Fill viewangles (in degrees or radians as appropriate)
+        s16 pitch = Camera_GetCamDirPitch(GET_ACTIVE_CAM(play));
+        s16 yaw = Camera_GetCamDirYaw(GET_ACTIVE_CAM(play));
+        Camera *cam = Play_GetCamera(play, 0);
+        cmd.viewangles.x = (pitch / 65536.0f) * -360.0f; // up/down
+        cmd.viewangles.y = (yaw / 65536.0f) * -360.0f; // left/right
+        cmd.viewangles.z = 0; // roll (usually 0)
+
+        // Movement axes (forward, side, up)
+        cmd.forwardmove = (sControlInput->rel.stick_y/127.0f) * 320; // e.g. +400 for forward, -400 for back
+        cmd.sidemove    = (sControlInput->rel.stick_x/127.0f) * -320; // e.g. +400 for right, -400 for left
+        cmd.upmove      = CHECK_BTN_ALL(sControlInput->rel.button, BTN_L) ? 320 : 0;      // e.g. +320 for jump, -320 for crouch
+
+        // Buttons (bitmask)
+        cmd.buttons = 0;
+        cmd.buttons |= (IN_USE     * CHECK_BTN_ALL(sControlInput->rel.button, BTN_A) ? 1 : 0);
+        cmd.buttons |= (IN_ATTACK  * CHECK_BTN_ALL(sControlInput->rel.button, BTN_B) ? 1 : 0);
+        cmd.buttons |= (IN_JUMP    * CHECK_BTN_ALL(sControlInput->rel.button, BTN_L) ? 1 : 0);
+        cmd.buttons |= (IN_DUCK    * CHECK_BTN_ALL(sControlInput->rel.button, BTN_Z) ? 1 : 0);
+        cmd.buttons |= (IN_FORWARD * sControlInput->rel.stick_y > 0 ? 1 : 0);
+        cmd.buttons |= (IN_BACK    * sControlInput->rel.stick_y < 0 ? 1 : 0);
+        cmd.buttons |= (IN_LEFT    * sControlInput->rel.stick_x < 0 ? 1 : 0);
+        cmd.buttons |= (IN_RIGHT   * sControlInput->rel.stick_x > 0 ? 1 : 0);
+
+        // Timing
+        cmd.msec = 50; // Duration of this command in ms
+
+        // Light level, impulse, weaponselect, etc. can be set as needed
+        cmd.lightlevel = 0;
+        cmd.impulse = 0;
+        cmd.weaponselect = 0;
+
+        if (!pmove)
+        {
+            PM_Init();
+        }
+
+        this->actor.world.pos = v_goldsrc_to_oot(PM_Move(pmove, 1, play, v_oot_to_goldsrc(this->actor.world.pos), cmd));
+    }
 
     this->unk_6AE_rotFlags |= UNK6AE_ROT_FOCUS_Y;
     return func_80836AB8(this, (play->shootingGalleryStatus != 0) || func_8002DD78(this) || func_808334B4(this)) - arg3;
