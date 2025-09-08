@@ -54,7 +54,7 @@ typedef struct usercmd_s
 } usercmd_t;
 
 void PM_Init ();
-vec3_t PM_Move ( struct playermove_s *ppmove, int server, PlayState* playState, vec3_t playerPos, usercmd_t cmd );
+vec3_t PM_Move ( struct playermove_s *ppmove, int server, PlayState* playState, Player *pPlayer, vec3_t playerPos, usercmd_t cmd );
 char PM_FindTextureType( char *name ); // Might not need this
 
 vec3_t pos_goldsrc_to_oot(vec3_t pg);

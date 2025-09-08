@@ -15,6 +15,7 @@ struct movevars_s *movevars = NULL;
 
 // TEMP
 PlayState* play = NULL;
+Player *player = NULL;
 
 int g_onladder = 0;
 
@@ -201,9 +202,12 @@ pmtrace_t PM_PlayerTrace(vec3_t start, vec3_t end, int traceFlags, int ignore_pe
     vec3_t end_oot = v_goldsrc_to_oot(end);
 
     // Perform the line trace (check wall, floor, and ceiling)
-    int hit = BgCheck_EntityLineTest1(&play->colCtx, &start_oot, &end_oot, &hitPos, &poly, 1, 1, 1, 1, &bgId);
+    int hit = BgCheck_EntityLineTest1(&play->colCtx, &start_oot, &end_oot, &hitPos, &poly, 1, 0, 1, 1, &bgId);
 
     vec3_t hitPos_gs = v_oot_to_goldsrc(hitPos);
+
+	vec3_t zero = {0,0,0};
+	EffectSsKiraKira_SpawnSmallYellow(play, &end_oot, &zero, &zero);
 
     if (hit && poly != NULL) {
         tr.fraction = sqrtf(
@@ -225,7 +229,7 @@ pmtrace_t PM_PlayerTrace(vec3_t start, vec3_t end, int traceFlags, int ignore_pe
         tr.plane.normal.z = COLPOLY_GET_NORMAL(poly->normal.z);
 
         tr.plane.normal = v_oot_to_goldsrc(tr.plane.normal);
-        // VectorNormalize(&tr.plane.normal);
+        VectorNormalize(&tr.plane.normal);
 
         // Check if start or end is inside solid
         int startSolid = BgCheck_PosInStaticBoundingBox(&play->colCtx, &start_oot);
@@ -246,9 +250,9 @@ pmtrace_t PM_PlayerTrace(vec3_t start, vec3_t end, int traceFlags, int ignore_pe
         tr.startsolid = 0;
         tr.allsolid = 0;
         tr.ent = 0;
+		tr.inopen = 1;
     }
 
-    tr.inopen = 1;
     return tr;
 }
 
@@ -320,9 +324,9 @@ qboolean PM_CheckWater ()
 	return pmove->waterlevel > 1;
 }
 
-void PM_CatagorizePosition (void)
+/*void PM_CatagorizePosition (void)
 {
-    vec3_t		point;
+	vec3_t		point;
 	pmtrace_t		tr;
 
 // if the player hull point one unit down is solid, the player
@@ -337,9 +341,11 @@ void PM_CatagorizePosition (void)
 	// water on each call, and the converse case will correct itself if called twice.
 	PM_CheckWater();
 
+	vec3_t origin = pmove->origin;
+	origin.z += 1;
 	point.x = pmove->origin.x;
 	point.y = pmove->origin.y;
-	point.z = pmove->origin.z - 2;
+	point.z = pmove->origin.z - 1;
 
 	if (pmove->velocity.z > 180)   // Shooting up really fast.  Definitely not on ground.
 	{
@@ -348,9 +354,16 @@ void PM_CatagorizePosition (void)
 	else
 	{
 		// Try and move down.
-		tr = pmove->PM_PlayerTrace (pmove->origin, point, PM_NORMAL, -1 );
+		tr = pmove->PM_PlayerTrace (origin, point, PM_NORMAL, -1 );
+
+		if (tr.ent == player->actor.id)
+		{	// Don't clip against yourself.
+			pmove->onground = -1;
+			return;
+		}
+
 		// If we hit a steep plane, we are not on ground
-		if ( tr.plane.normal.z < 0.7)
+		if (tr.plane.normal.z < 0.7)
 			pmove->onground = -1;	// too steep
 		else
 			pmove->onground = tr.ent;  // Otherwise, point to index of ent under us.
@@ -364,11 +377,41 @@ void PM_CatagorizePosition (void)
 			if (pmove->waterlevel < 2 && !tr.startsolid && !tr.allsolid)
 				VectorCopy (tr.endpos, pmove->origin);
 		}
+	}
+}*/
 
-		// Standing on an entity other than the world
-		if (tr.ent > 0)   // So signal that we are touching something.
+void PM_CatagorizePosition (void)
+{
+    if (pmove->velocity.z > 180)   // Shooting up really fast.  Definitely not on ground.
+	{
+		pmove->onground = -1;
+	}
+	else
+	{
+		CollisionPoly *poly = NULL;
+		int bgId = -1;
+		vec3_t checkFrom = v_goldsrc_to_oot(pmove->origin);
+		checkFrom.y += sv_stepsize;
+		float floorHeight = BgCheck_EntityRaycastFloor5(play, &play->colCtx, &poly, &bgId, &player->actor, &checkFrom);
+		float floorHeightDiff = floorHeight - v_goldsrc_to_oot(pmove->origin).y;
+
+		printf("Floor height: %f, diff: %f\n", floorHeight, floorHeightDiff);
+
+		// TODO: We're ending up in some weird anamolous state floating slightly above the ground
+
+		if (floorHeight != BGCHECK_Y_MIN && floorHeightDiff >= 0.0f) 
 		{
-			PM_AddToTouched(tr, pmove->velocity);
+			//float slope = COLPOLY_GET_NORMAL(poly->normal.y);
+			//if ( slope < 0.7)
+			//	pmove->onground = -1;	// too steep
+			//else
+			
+			pmove->onground = bgId;
+			pmove->origin.z = floorHeight;
+		}
+		else
+		{
+			pmove->onground = -1;
 		}
 	}
 }
@@ -891,6 +934,9 @@ int PM_FlyMove (void)
         end.y = pmove->origin.y + time_left * pmove->velocity.y;
         end.z = pmove->origin.z + time_left * pmove->velocity.z;
 
+		/*VectorCopy (end, pmove->origin);
+		return; // testing*/
+
 		// See if we can make it from origin to end point.
 		trace = pmove->PM_PlayerTrace (pmove->origin, end, PM_NORMAL, -1 );
 
@@ -1344,7 +1390,7 @@ void PM_PlayerMove ( qboolean server )
 	pmove->numtouch = 0;                    
 
 	// # of msec to apply movement
-	/// pmove->frametime = pmove->cmd.msec * 0.001; // TODO: Grab actual frametime
+	pmove->frametime = pmove->cmd.msec * 0.001; // TODO: Grab actual frametime
 
 	PM_ReduceTimers();
 
@@ -1606,7 +1652,7 @@ void PM_PlayerMove ( qboolean server )
 	}
 }
 
-vec3_t PM_Move ( struct playermove_s *ppmove, int server, PlayState *playState, vec3_t playerPos, usercmd_t cmd )
+vec3_t PM_Move ( struct playermove_s *ppmove, int server, PlayState *playState, Player *pPlayer, vec3_t playerPos, usercmd_t cmd )
 {
 	/// assert( pm_shared_initialized );
 
@@ -1615,6 +1661,7 @@ vec3_t PM_Move ( struct playermove_s *ppmove, int server, PlayState *playState, 
 
     // Set current play state
     play = playState;
+	player = pPlayer;
 
     // Sync position with OoT
     VectorCopy( playerPos, pmove->origin );
@@ -1635,6 +1682,14 @@ vec3_t PM_Move ( struct playermove_s *ppmove, int server, PlayState *playState, 
 	{
 		pmove->friction = 1.0f;
 	}
+
+	//printf( "onground: %d\n", pmove->onground );
+
+	vec3_t start = pmove->origin;
+	start.z += 24;
+	vec3_t end = start;
+	start.x += 100;
+	pmove->PM_PlayerTrace (start, end, PM_NORMAL, -1 );
 
     return pmove->origin;
 }
@@ -1672,7 +1727,7 @@ void PM_Init()
 
     // testing
     pmove_s.onground = 0;
-    pmove_s.frametime = 1.0f / 20.0f;
+    // pmove_s.frametime = 1.0f / 20.0f;
     pmove_s.movetype = MOVETYPE_WALK;
     pmove_s.gravity = 1.0f;
     pmove_s.maxspeed = sv_maxspeed;

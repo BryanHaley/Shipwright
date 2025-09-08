@@ -12876,10 +12876,6 @@ s16 func_8084ABD8(PlayState* play, Player* this, s32 arg2, s16 arg3) {
         //cmd.buttons |= IN_FORWARD;
         //cmd.forwardmove = 320;
         inFirstPerson = 1;
-        if (cmd.buttons & IN_JUMP)
-        {
-            printf("Jump\n");
-        }
 
         // Timing
         cmd.msec = 50; // Duration of this command in ms
@@ -12894,7 +12890,7 @@ s16 func_8084ABD8(PlayState* play, Player* this, s32 arg2, s16 arg3) {
             PM_Init();
         }
 
-        this->actor.world.pos = v_goldsrc_to_oot(PM_Move(pmove, 1, play, v_oot_to_goldsrc(this->actor.world.pos), cmd));
+        this->actor.world.pos = v_goldsrc_to_oot(PM_Move(pmove, 1, play, this, v_oot_to_goldsrc(this->actor.world.pos), cmd));
     }
 
     this->unk_6AE_rotFlags |= UNK6AE_ROT_FOCUS_Y;
