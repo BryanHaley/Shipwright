@@ -12878,7 +12878,7 @@ s16 func_8084ABD8(PlayState* play, Player* this, s32 arg2, s16 arg3) {
         inFirstPerson = 1;
 
         // Timing
-        cmd.msec = (int)((1000.0f / R_UPDATE_RATE) / 3); // Duration of this command in ms
+        cmd.msec = (int)((1000.0f / R_UPDATE_RATE) / 5); // Duration of this command in ms
 
         // Light level, impulse, weaponselect, etc. can be set as needed
         cmd.lightlevel = 0;
@@ -12890,6 +12890,8 @@ s16 func_8084ABD8(PlayState* play, Player* this, s32 arg2, s16 arg3) {
             PM_Init();
         }
 
+        this->actor.world.pos = v_goldsrc_to_oot(PM_Move(pmove, 1, play, this, v_oot_to_goldsrc(this->actor.world.pos), cmd));
+        this->actor.world.pos = v_goldsrc_to_oot(PM_Move(pmove, 1, play, this, v_oot_to_goldsrc(this->actor.world.pos), cmd));
         this->actor.world.pos = v_goldsrc_to_oot(PM_Move(pmove, 1, play, this, v_oot_to_goldsrc(this->actor.world.pos), cmd));
         this->actor.world.pos = v_goldsrc_to_oot(PM_Move(pmove, 1, play, this, v_oot_to_goldsrc(this->actor.world.pos), cmd));
         this->actor.world.pos = v_goldsrc_to_oot(PM_Move(pmove, 1, play, this, v_oot_to_goldsrc(this->actor.world.pos), cmd));
