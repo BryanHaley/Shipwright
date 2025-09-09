@@ -80,6 +80,47 @@ vec3_t v_oot_to_goldsrc(vec3_t vo){
     return vg;
 }
 
+// Compute the (not normalized) normal of a triangle given three points
+static Vec3f tri_normal(const Vec3f* a, const Vec3f* b, const Vec3f* c) {
+    Vec3f ab = {b->x - a->x, b->y - a->y, b->z - a->z};
+    Vec3f ac = {c->x - a->x, c->y - a->y, c->z - a->z};
+    Vec3f n = {
+        ab.y * ac.z - ab.z * ac.y,
+        ab.z * ac.x - ab.x * ac.z,
+        ab.x * ac.y - ab.y * ac.x
+    };
+    return n;
+}
+
+// Compute signed distance from point p to the plane defined by normal n and point p0
+static float plane_test(const Vec3f* n, const Vec3f* p0, const Vec3f* p) {
+    return n->x * (p->x - p0->x) + n->y * (p->y - p0->y) + n->z * (p->z - p0->z);
+}
+
+bool point_in_prism(const Vec3f* p, const Vec3f triA[3], const Vec3f triB[3]) {
+    // The prism has 5 faces: 2 triangles, 3 quads (as 6 triangles)
+    // We'll check if p is on the inside side of all 5 planes
+
+    // Face normals (outward)
+    Vec3f nA = tri_normal(&triA[0], &triA[1], &triA[2]);
+    Vec3f nB = tri_normal(&triB[0], &triB[1], &triB[2]);
+    // Side faces (quads split into triangles)
+    Vec3f nS0 = tri_normal(&triA[0], &triA[1], &triB[1]);
+    Vec3f nS1 = tri_normal(&triA[1], &triA[2], &triB[2]);
+    Vec3f nS2 = tri_normal(&triA[2], &triA[0], &triB[0]);
+
+    // Test against all 5 planes (prism is between triA and triB)
+    if (plane_test(&nA, &triA[0], p) > 0.0f) return false;
+    if (plane_test(&nB, &triB[0], p) < 0.0f) return false;
+    if (plane_test(&nS0, &triA[0], p) > 0.0f) return false;
+    if (plane_test(&nS1, &triA[1], p) > 0.0f) return false;
+    if (plane_test(&nS2, &triA[2], p) > 0.0f) return false;
+
+    return true;
+}
+
+extern void Math_Vec3s_ToVec3f(Vec3f* dest, Vec3s* src);
+
 /**
  * Simple raycast: tests if a line from start to end intersects any polygons (static or dyna) in the scene.
  * Returns true if an intersection is found.
@@ -105,22 +146,23 @@ s32 PM_SimpleRaycast(CollisionContext* colCtx, Vec3f* start, Vec3f* end, Vec3f* 
 
     for (s32 i = 0; i < numPolys; i++) {
         // Get triangle vertices
-        Vec3f v0, v1, v2;
-        v0.x = vtxList[COLPOLY_VTX_INDEX(polyList[i].flags_vIA)].x;
-        v0.y = vtxList[COLPOLY_VTX_INDEX(polyList[i].flags_vIA)].y;
-        v0.z = vtxList[COLPOLY_VTX_INDEX(polyList[i].flags_vIA)].z;
-        v1.x = vtxList[COLPOLY_VTX_INDEX(polyList[i].flags_vIB)].x;
-        v1.y = vtxList[COLPOLY_VTX_INDEX(polyList[i].flags_vIB)].y;
-        v1.z = vtxList[COLPOLY_VTX_INDEX(polyList[i].flags_vIB)].z;
-        v2.x = vtxList[polyList[i].vIC].x;
-        v2.y = vtxList[polyList[i].vIC].y;
-        v2.z = vtxList[polyList[i].vIC].z;
+        Vec3s v0_s, v1_s, v2_s;
+        v0_s.x = vtxList[COLPOLY_VTX_INDEX(polyList[i].flags_vIA)].x;
+        v0_s.y = vtxList[COLPOLY_VTX_INDEX(polyList[i].flags_vIA)].y;
+        v0_s.z = vtxList[COLPOLY_VTX_INDEX(polyList[i].flags_vIA)].z;
+        v1_s.x = vtxList[COLPOLY_VTX_INDEX(polyList[i].flags_vIB)].x;
+        v1_s.y = vtxList[COLPOLY_VTX_INDEX(polyList[i].flags_vIB)].y;
+        v1_s.z = vtxList[COLPOLY_VTX_INDEX(polyList[i].flags_vIB)].z;
+        v2_s.x = vtxList[polyList[i].vIC].x;
+        v2_s.y = vtxList[polyList[i].vIC].y;
+        v2_s.z = vtxList[polyList[i].vIC].z;
 
-        // Compute triangle normal
-        Vec3f edge1 = { v1.x - v0.x, v1.y - v0.y, v1.z - v0.z };
-        Vec3f edge2 = { v2.x - v0.x, v2.y - v0.y, v2.z - v0.z };
-        Vec3f normal = { edge1.y * edge2.z - edge1.z * edge2.y, edge1.z * edge2.x - edge1.x * edge2.z,
-                         edge1.x * edge2.y - edge1.y * edge2.x };
+        Vec3f v0, v1, v2;
+        Math_Vec3s_ToVec3f(&v0, &v0_s);
+        Math_Vec3s_ToVec3f(&v1, &v1_s);
+        Math_Vec3s_ToVec3f(&v2, &v2_s);
+
+        Vec3f normal = { COLPOLY_GET_NORMAL(polyList[i].normal.x), COLPOLY_GET_NORMAL(polyList[i].normal.y), COLPOLY_GET_NORMAL(polyList[i].normal.z) };
 
         // Plane equation: normal.x * X + normal.y * Y + normal.z * Z + d = 0
         f32 d = -(normal.x * v0.x + normal.y * v0.y + normal.z * v0.z);
@@ -177,36 +219,34 @@ s32 PM_SimpleRaycast(CollisionContext* colCtx, Vec3f* start, Vec3f* end, Vec3f* 
                 *startSolid = false;
                 *endSolid = false;
 
-                // Check if start is inside this poly (on the negative side of the plane and inside triangle)
-                f32 planeStart = normal.x * start->x + normal.y * start->y + normal.z * start->z + d;
-                if (planeStart < 0.0f) {
-                    Vec3f v0s = { start->x - v0.x, start->y - v0.y, start->z - v0.z };
-                    f32 d20s = v0s.x * v0v1.x + v0s.y * v0v1.y + v0s.z * v0v1.z;
-                    f32 d21s = v0s.x * v0v2.x + v0s.y * v0v2.y + v0s.z * v0v2.z;
-                    f32 vs = (d11 * d20s - d01 * d21s) / denom2;
-                    f32 ws = (d00 * d21s - d01 * d20s) / denom2;
-                    f32 us = 1.0f - vs - ws;
-                    if (us >= 0.0f && vs >= 0.0f && ws >= 0.0f) {
-                        *startSolid = true;
-                    }
+                // Extrude triangle along inverted normal (50 units)
+                Vec3f extrude[3];
+                extrude[0].x = v0.x - normal.x * 50.0f;
+                extrude[0].y = v0.y - normal.y * 50.0f;
+                extrude[0].z = v0.z - normal.z * 50.0f;
+                extrude[1].x = v1.x - normal.x * 50.0f;
+                extrude[1].y = v1.y - normal.y * 50.0f;
+                extrude[1].z = v1.z - normal.z * 50.0f;
+                extrude[2].x = v2.x - normal.x * 50.0f;
+                extrude[2].y = v2.y - normal.y * 50.0f;
+                extrude[2].z = v2.z - normal.z * 50.0f;
+
+                Vec3f tri[3] = { v0, v1, v2 };
+
+                // Check if start is inside the extruded prism
+                if (point_in_prism(start, tri, extrude)) {
+                    *startSolid = true;
                 }
 
-                // Check if end is inside this poly
-                f32 planeEnd = normal.x * end->x + normal.y * end->y + normal.z * end->z + d;
-                if (planeEnd < 0.0f) {
-                    Vec3f v0e = { end->x - v0.x, end->y - v0.y, end->z - v0.z };
-                    f32 d20e = v0e.x * v0v1.x + v0e.y * v0v1.y + v0e.z * v0v1.z;
-                    f32 d21e = v0e.x * v0v2.x + v0e.y * v0v2.y + v0e.z * v0v2.z;
-                    f32 ve = (d11 * d20e - d01 * d21e) / denom2;
-                    f32 we = (d00 * d21e - d01 * d20e) / denom2;
-                    f32 ue = 1.0f - ve - we;
-                    if (ue >= 0.0f && ve >= 0.0f && we >= 0.0f) {
-                        *endSolid = true;
-                    }
+                // Check if end is inside the extruded prism
+                if (point_in_prism(end, tri, extrude)) {
+                    *endSolid = true;
                 }
             }
         }
     }
+
+    return hit; // Only static polys for now
 
     // --- Dyna polys ---
     for (int bgId = 0; bgId < BG_ACTOR_MAX; ++bgId) {
@@ -227,22 +267,24 @@ s32 PM_SimpleRaycast(CollisionContext* colCtx, Vec3f* start, Vec3f* end, Vec3f* 
 
         for (s32 i = polyStart; i < polyEnd; i++) {
             // Get triangle vertices
+            Vec3s v0_s, v1_s, v2_s;
+            v0_s.x = dynaVtxList[COLPOLY_VTX_INDEX(dynaPolyList[i].flags_vIA)].x;
+            v0_s.y = dynaVtxList[COLPOLY_VTX_INDEX(dynaPolyList[i].flags_vIA)].y;
+            v0_s.z = dynaVtxList[COLPOLY_VTX_INDEX(dynaPolyList[i].flags_vIA)].z;
+            v1_s.x = dynaVtxList[COLPOLY_VTX_INDEX(dynaPolyList[i].flags_vIB)].x;
+            v1_s.y = dynaVtxList[COLPOLY_VTX_INDEX(dynaPolyList[i].flags_vIB)].y;
+            v1_s.z = dynaVtxList[COLPOLY_VTX_INDEX(dynaPolyList[i].flags_vIB)].z;
+            v2_s.x = dynaVtxList[dynaPolyList[i].vIC].x;
+            v2_s.y = dynaVtxList[dynaPolyList[i].vIC].y;
+            v2_s.z = dynaVtxList[dynaPolyList[i].vIC].z;
+
             Vec3f v0, v1, v2;
-            v0.x = dynaVtxList[COLPOLY_VTX_INDEX(dynaPolyList[i].flags_vIA)].x;
-            v0.y = dynaVtxList[COLPOLY_VTX_INDEX(dynaPolyList[i].flags_vIA)].y;
-            v0.z = dynaVtxList[COLPOLY_VTX_INDEX(dynaPolyList[i].flags_vIA)].z;
-            v1.x = dynaVtxList[COLPOLY_VTX_INDEX(dynaPolyList[i].flags_vIB)].x;
-            v1.y = dynaVtxList[COLPOLY_VTX_INDEX(dynaPolyList[i].flags_vIB)].y;
-            v1.z = dynaVtxList[COLPOLY_VTX_INDEX(dynaPolyList[i].flags_vIB)].z;
-            v2.x = dynaVtxList[dynaPolyList[i].vIC].x;
-            v2.y = dynaVtxList[dynaPolyList[i].vIC].y;
-            v2.z = dynaVtxList[dynaPolyList[i].vIC].z;
+            Math_Vec3s_ToVec3f(&v0, &v0_s);
+            Math_Vec3s_ToVec3f(&v1, &v1_s);
+            Math_Vec3s_ToVec3f(&v2, &v2_s);
 
             // Compute triangle normal
-            Vec3f edge1 = { v1.x - v0.x, v1.y - v0.y, v1.z - v0.z };
-            Vec3f edge2 = { v2.x - v0.x, v2.y - v0.y, v2.z - v0.z };
-            Vec3f normal = { edge1.y * edge2.z - edge1.z * edge2.y, edge1.z * edge2.x - edge1.x * edge2.z,
-                             edge1.x * edge2.y - edge1.y * edge2.x };
+            Vec3f normal = { COLPOLY_GET_NORMAL(dynaPolyList[i].normal.x), COLPOLY_GET_NORMAL(dynaPolyList[i].normal.y), COLPOLY_GET_NORMAL(dynaPolyList[i].normal.z) };
 
             f32 d = -(normal.x * v0.x + normal.y * v0.y + normal.z * v0.z);
 
@@ -289,32 +331,28 @@ s32 PM_SimpleRaycast(CollisionContext* colCtx, Vec3f* start, Vec3f* end, Vec3f* 
                     *startSolid = false;
                     *endSolid = false;
 
-                    // Check if start is inside this dyna poly
-                    f32 planeStart = normal.x * start->x + normal.y * start->y + normal.z * start->z + d;
-                    if (planeStart < 0.0f) {
-                        Vec3f v0s = { start->x - v0.x, start->y - v0.y, start->z - v0.z };
-                        f32 d20s = v0s.x * v0v1.x + v0s.y * v0v1.y + v0s.z * v0v1.z;
-                        f32 d21s = v0s.x * v0v2.x + v0s.y * v0v2.y + v0s.z * v0v2.z;
-                        f32 vs = (d11 * d20s - d01 * d21s) / denom2;
-                        f32 ws = (d00 * d21s - d01 * d20s) / denom2;
-                        f32 us = 1.0f - vs - ws;
-                        if (us >= 0.0f && vs >= 0.0f && ws >= 0.0f) {
-                            *startSolid = true;
-                        }
+                    // Extrude triangle along inverted normal (50 units)
+                    Vec3f extrude[3];
+                    extrude[0].x = v0.x - normal.x * 50.0f;
+                    extrude[0].y = v0.y - normal.y * 50.0f;
+                    extrude[0].z = v0.z - normal.z * 50.0f;
+                    extrude[1].x = v1.x - normal.x * 50.0f;
+                    extrude[1].y = v1.y - normal.y * 50.0f;
+                    extrude[1].z = v1.z - normal.z * 50.0f;
+                    extrude[2].x = v2.x - normal.x * 50.0f;
+                    extrude[2].y = v2.y - normal.y * 50.0f;
+                    extrude[2].z = v2.z - normal.z * 50.0f;
+
+                    Vec3f tri[3] = { v0, v1, v2 };
+
+                    // Check if start is inside the extruded prism
+                    if (point_in_prism(start, tri, extrude)) {
+                        *startSolid = true;
                     }
 
-                    // Check if end is inside this dyna poly
-                    f32 planeEnd = normal.x * end->x + normal.y * end->y + normal.z * end->z + d;
-                    if (planeEnd < 0.0f) {
-                        Vec3f v0e = { end->x - v0.x, end->y - v0.y, end->z - v0.z };
-                        f32 d20e = v0e.x * v0v1.x + v0e.y * v0v1.y + v0e.z * v0v1.z;
-                        f32 d21e = v0e.x * v0v2.x + v0e.y * v0v2.y + v0e.z * v0v2.z;
-                        f32 ve = (d11 * d20e - d01 * d21e) / denom2;
-                        f32 we = (d00 * d21e - d01 * d20e) / denom2;
-                        f32 ue = 1.0f - ve - we;
-                        if (ue >= 0.0f && ve >= 0.0f && we >= 0.0f) {
-                            *endSolid = true;
-                        }
+                    // Check if end is inside the extruded prism
+                    if (point_in_prism(end, tri, extrude)) {
+                        *endSolid = true;
                     }
                 }
             }
