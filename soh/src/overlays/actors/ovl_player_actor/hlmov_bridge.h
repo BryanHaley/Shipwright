@@ -1,4 +1,5 @@
-#pragma once
+#ifndef HLMOV_BRIDGE_H
+#define HLMOV_BRIDGE_H
 
 #include "z64.h"
 
@@ -7,6 +8,8 @@
 extern "C"
 {
 #endif
+
+#define GOLDSRC_UNIT_SCALE 1.0f // 1 HL unit = 2 OoT units
 
 #define IN_ATTACK	(1 << 0)
 #define IN_JUMP		(1 << 1)
@@ -24,6 +27,36 @@ extern "C"
 #define IN_RELOAD	(1 << 13)
 #define IN_ALT1		(1 << 14)
 #define IN_SCORE	(1 << 15)   // Used by client.dll for when scoreboard is held down
+
+extern float cl_bob;
+extern float cl_bobcycle;
+extern float cl_bobup;
+
+extern float cl_forwardspeed;
+extern float cl_sidespeed;
+extern float cl_upspeed;
+extern float cl_movespeedkey;
+
+extern float sv_gravity;  			// Gravity for map
+extern float sv_stopspeed;			// Deceleration when not moving
+extern float sv_maxspeed; 			// Max allowed speed
+extern float sv_noclipspeed; 		// Max allowed speed
+extern float sv_accelerate;			// Acceleration factor
+extern float sv_airaccelerate;		// Same for when in open air
+extern float sv_wateraccelerate;	// Same for when in water
+extern float sv_friction;
+extern float sv_edgefriction;		// Extra friction near dropofs
+extern float sv_waterfriction;		// Less in water
+extern float sv_entgravity;  		// 1.0
+extern float sv_bounce;      		// Wall bounce value. 1.0
+extern float sv_stepsize;
+extern float sv_maxvelocity; 		// maximum server velocity.
+extern float sv_jumpspeed;			// default jump speed
+// extern bool mp_footsteps = true;			// Play footstep sounds
+extern float sv_rollangle;
+extern float sv_rollspeed;
+
+extern int sv_autohop;
 
 // Z64 -> HL types
 typedef Vec3f vec3_t;
@@ -75,9 +108,12 @@ void goldsrc_angles_from_basis(vec3_t fwd, vec3_t right, vec3_t up,
 void oot_pose_to_goldsrc(vec3_t pos_o,
                          float yaw_o_deg, float pitch_o_deg, float roll_o_deg,
                          vec3_t* pos_g, float* pitch_g_deg, float* yaw_g_deg, float* roll_g_deg);
+float VectorNormalize(vec3_t *v);
 
 #ifdef __cplusplus
 #undef this
 };
 #undef this
 #endif
+
+#endif // HLMOV_BRIDGE_H

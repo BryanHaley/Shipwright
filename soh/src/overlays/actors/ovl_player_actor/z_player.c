@@ -12723,8 +12723,6 @@ void Player_Destroy(Actor* thisx, PlayState* play) {
     ResourceMgr_UnregisterSkeleton(&this->upperSkelAnime);
 }
 
-#include <stdio.h>
-
 // first person manipulate player actor
 s16 func_8084ABD8(PlayState* play, Player* this, s32 arg2, s16 arg3) {
     s32 temp1 = 0;
@@ -12857,15 +12855,17 @@ s16 func_8084ABD8(PlayState* play, Player* this, s32 arg2, s16 arg3) {
         cmd.viewangles.z = 0; // roll (usually 0)
 
         // Movement axes (forward, side, up)
-        cmd.forwardmove = (sControlInput->rel.stick_y/127.0f) * 320; // e.g. +400 for forward, -400 for back
-        cmd.sidemove    = (sControlInput->rel.stick_x/127.0f) * -320; // e.g. +400 for right, -400 for left
-        cmd.upmove      = CHECK_BTN_ALL(sControlInput->rel.button, BTN_L) ? 320 : 0;      // e.g. +320 for jump, -320 for crouch
+        Vec3f moveDir = { sControlInput->rel.stick_x, sControlInput->rel.stick_y, 0 };
+        VectorNormalize(&moveDir);
+        cmd.forwardmove = moveDir.y * cl_forwardspeed; // e.g. +400 for forward, -400 for back
+        cmd.sidemove    = moveDir.x * -cl_sidespeed; // e.g. +400 for right, -400 for left
+        cmd.upmove      = CHECK_BTN_ALL(sControlInput->cur.button, BTN_L) ? cl_upspeed : 0;      // e.g. +320 for jump, -320 for crouch
 
         // Buttons (bitmask)
         cmd.buttons = 0;
         //cmd.buttons |= (IN_USE     * (CHECK_BTN_ALL(sControlInput->rel.button, BTN_A) ? 1 : 0));
-        cmd.buttons |= (IN_ATTACK  * (CHECK_BTN_ALL(sControlInput->rel.button, BTN_B) ? 1 : 0));
-        cmd.buttons |= (IN_JUMP    * (CHECK_BTN_ALL(sControlInput->rel.button, BTN_L) ? 1 : 0));
+        // cmd.buttons |= (IN_ATTACK  * (CHECK_BTN_ALL(sControlInput->cur.button, BTN_B) ? 1 : 0));
+        cmd.buttons |= (IN_JUMP    * (CHECK_BTN_ALL(sControlInput->cur.button, BTN_L) ? 1 : 0));
         //cmd.buttons |= (IN_DUCK    * (CHECK_BTN_ALL(sControlInput->rel.button, BTN_Z) ? 1 : 0));
         cmd.buttons |= (IN_FORWARD * sControlInput->rel.stick_y > 0 ? 1 : 0);
         cmd.buttons |= (IN_BACK    * sControlInput->rel.stick_y < 0 ? 1 : 0);
@@ -12878,7 +12878,7 @@ s16 func_8084ABD8(PlayState* play, Player* this, s32 arg2, s16 arg3) {
         inFirstPerson = 1;
 
         // Timing
-        cmd.msec = 50; // Duration of this command in ms
+        cmd.msec = (int)((1000.0f / R_UPDATE_RATE) / 3); // Duration of this command in ms
 
         // Light level, impulse, weaponselect, etc. can be set as needed
         cmd.lightlevel = 0;
@@ -12890,6 +12890,8 @@ s16 func_8084ABD8(PlayState* play, Player* this, s32 arg2, s16 arg3) {
             PM_Init();
         }
 
+        this->actor.world.pos = v_goldsrc_to_oot(PM_Move(pmove, 1, play, this, v_oot_to_goldsrc(this->actor.world.pos), cmd));
+        this->actor.world.pos = v_goldsrc_to_oot(PM_Move(pmove, 1, play, this, v_oot_to_goldsrc(this->actor.world.pos), cmd));
         this->actor.world.pos = v_goldsrc_to_oot(PM_Move(pmove, 1, play, this, v_oot_to_goldsrc(this->actor.world.pos), cmd));
     }
 

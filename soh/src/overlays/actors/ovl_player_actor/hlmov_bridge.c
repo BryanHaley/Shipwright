@@ -32,6 +32,37 @@
 float rad(float deg){ return deg * (float)M_PI / 180.0f; }
 float deg(float rad){ return rad * 180.0f / (float)M_PI; }
 
+float cl_bob = 0.01;
+float cl_bobcycle = 0.8;
+float cl_bobup = 0.5;
+
+float cl_forwardspeed = 100;
+float cl_sidespeed = 100;
+float cl_upspeed = 80;
+float cl_movespeedkey = 0.3;
+
+float sv_gravity = 30;  			// Gravity for map
+float sv_stopspeed = 5;			    // Deceleration when not moving
+float sv_maxspeed = 80; 			// Max allowed speed
+float sv_accelerate = 5;			// Acceleration factor
+float sv_airaccelerate = 5;		    // Same for when in open air
+float sv_wateraccelerate = 5;		// Same for when in water
+float sv_stepsize = 20;
+float sv_jumpspeed = 40;			// default jump speed
+
+float sv_noclipspeed = 320; 		// Max allowed speed
+float sv_friction = 4;
+float sv_edgefriction = 2;			// Extra friction near dropofs
+float sv_waterfriction = 1;			// Less in water
+float sv_entgravity = 1.0;  		// 1.0
+float sv_bounce = 1.0;      		// Wall bounce value. 1.0
+float sv_maxvelocity = 2000; 		// maximum server velocity.
+//bool mp_footsteps = true;			// Play footstep sounds
+float sv_rollangle = 2;
+float sv_rollspeed = 200;
+
+int sv_autohop = 1;
+
 /* ---------- Position: GoldSrc -> OoT ---------- */
 vec3_t pos_goldsrc_to_oot(vec3_t pg){
     vec3_t po;
@@ -74,9 +105,9 @@ void goldsrc_angle_vectors(float pitch_deg, float yaw_deg, float roll_deg,
 /* ---------- Basis swap: GoldSrc -> OoT for any vector ---------- */
 vec3_t v_goldsrc_to_oot(vec3_t vg){
     vec3_t vo;
-    vo.x = -vg.y;
-    vo.y =  vg.z;
-    vo.z =  vg.x;
+    vo.x = -vg.y/GOLDSRC_UNIT_SCALE;
+    vo.y =  vg.z/GOLDSRC_UNIT_SCALE;
+    vo.z =  vg.x/GOLDSRC_UNIT_SCALE;
     return vo;
 }
 
@@ -190,9 +221,9 @@ mat3 oot_matrix_from_euler(float yaw_deg, float pitch_deg, float roll_deg){
 /* ---------- Basis swap: OoT -> GoldSrc for any vector ---------- */
 vec3_t v_oot_to_goldsrc(vec3_t vo){
     vec3_t vg;
-    vg.x =  vo.z;
-    vg.y = -vo.x;
-    vg.z =  vo.y;
+    vg.x =  vo.z*GOLDSRC_UNIT_SCALE;
+    vg.y = -vo.x*GOLDSRC_UNIT_SCALE;
+    vg.z =  vo.y*GOLDSRC_UNIT_SCALE;
     return vg;
 }
 

@@ -86,7 +86,7 @@ static void VectorMA (vec3_t va, double scale, vec3_t vb, vec3_t vc)
 	vc.z = va.z + scale*vb.z;
 }
 
-static float VectorNormalize(vec3_t *v)
+float VectorNormalize(vec3_t *v)
 {
     float ilength = (float)sqrt(DotProduct(*v, *v));
     float magnitude = ilength;
@@ -206,8 +206,8 @@ pmtrace_t PM_PlayerTrace(vec3_t start, vec3_t end, int traceFlags, int ignore_pe
 
     vec3_t hitPos_gs = v_oot_to_goldsrc(hitPos);
 
-	vec3_t zero = {0,0,0};
-	EffectSsKiraKira_SpawnSmallYellow(play, &end_oot, &zero, &zero);
+	/*vec3_t zero = {0,0,0};
+	EffectSsKiraKira_SpawnSmallYellow(play, &end_oot, &zero, &zero);*/
 
     if (hit && poly != NULL) {
         tr.fraction = sqrtf(
@@ -391,23 +391,31 @@ void PM_CatagorizePosition (void)
 		CollisionPoly *poly = NULL;
 		int bgId = -1;
 		vec3_t checkFrom = v_goldsrc_to_oot(pmove->origin);
-		checkFrom.y += sv_stepsize;
+		checkFrom.y += 60 * GOLDSRC_UNIT_SCALE;
 		float floorHeight = BgCheck_EntityRaycastFloor5(play, &play->colCtx, &poly, &bgId, &player->actor, &checkFrom);
 		float floorHeightDiff = floorHeight - v_goldsrc_to_oot(pmove->origin).y;
 
 		printf("Floor height: %f, diff: %f\n", floorHeight, floorHeightDiff);
 
-		// TODO: We're ending up in some weird anamolous state floating slightly above the ground
-
-		if (floorHeight != BGCHECK_Y_MIN && floorHeightDiff >= 0.0f) 
+		if (floorHeight != BGCHECK_Y_MIN && floorHeightDiff >= 0.0f && floorHeightDiff <= sv_stepsize) 
 		{
-			//float slope = COLPOLY_GET_NORMAL(poly->normal.y);
-			//if ( slope < 0.7)
-			//	pmove->onground = -1;	// too steep
-			//else
+			vec3_t new_origin = v_goldsrc_to_oot(pmove->origin);
+			new_origin.y = floorHeight;
+			pmove->origin = v_oot_to_goldsrc(new_origin);
 			
-			pmove->onground = bgId;
-			pmove->origin.z = floorHeight;
+			vec3_t plane_normal;
+			plane_normal.x = COLPOLY_GET_NORMAL(poly->normal.x);
+			plane_normal.y = COLPOLY_GET_NORMAL(poly->normal.y);
+			plane_normal.z = COLPOLY_GET_NORMAL(poly->normal.z);
+
+			plane_normal = v_oot_to_goldsrc(plane_normal);
+			VectorNormalize(&plane_normal);
+
+			if (plane_normal.z < 0.7f) {
+				pmove->onground = -1;	// too steep
+			} else {
+				pmove->onground = bgId;
+			}
 		}
 		else
 		{
@@ -768,7 +776,7 @@ void PM_Jump (void)
 		return;		// in air, so no effect
 	}
 
-	if ( pmove->oldbuttons & IN_JUMP )
+	if ( pmove->oldbuttons & IN_JUMP && !sv_autohop )
 		return;		// don't pogo stick
 
 	// In the air now.
@@ -802,16 +810,16 @@ void PM_Jump (void)
             pmove->velocity.x = pmove->forward.x * PLAYER_LONGJUMP_SPEED * 1.6;
             pmove->velocity.y = pmove->forward.y * PLAYER_LONGJUMP_SPEED * 1.6;
 		
-			pmove->velocity.z = sqrt(2 * 800 * 56.0);
+			pmove->velocity.z = sqrt(2 * sv_jumpspeed * 56.0);
 		}
 		else
 		{
-			pmove->velocity.z = sqrt(2 * 800 * 45.0);
+			pmove->velocity.z = sqrt(2 * sv_jumpspeed * 45.0);
 		}
 	}
 	else
 	{
-		pmove->velocity.z = sqrt(2 * 800 * 45.0);
+		pmove->velocity.z = sqrt(2 * sv_jumpspeed * 45.0);
 	}
 
 	// Decay it for simulation
@@ -1725,10 +1733,10 @@ void PM_Init()
     movevars_singleton.rollangle = sv_rollangle;
     movevars_singleton.rollspeed = sv_rollspeed;
 
+	pmove_s.gravity = sv_entgravity;
+    pmove_s.maxspeed = sv_maxspeed;
+
     // testing
     pmove_s.onground = 0;
-    // pmove_s.frametime = 1.0f / 20.0f;
     pmove_s.movetype = MOVETYPE_WALK;
-    pmove_s.gravity = 1.0f;
-    pmove_s.maxspeed = sv_maxspeed;
 }
