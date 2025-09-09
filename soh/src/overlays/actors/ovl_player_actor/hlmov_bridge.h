@@ -88,27 +88,13 @@ typedef struct usercmd_s
 
 void PM_Init ();
 vec3_t PM_Move ( struct playermove_s *ppmove, int server, PlayState* playState, Player *pPlayer, vec3_t playerPos, usercmd_t cmd );
-char PM_FindTextureType( char *name ); // Might not need this
 
-vec3_t pos_goldsrc_to_oot(vec3_t pg);
-void goldsrc_angle_vectors(float pitch_deg, float yaw_deg, float roll_deg,
-                           vec3_t* fwd, vec3_t* right, vec3_t* up);
 vec3_t v_goldsrc_to_oot(vec3_t vg);
-mat3 oot_matrix_from_basis(vec3_t right, vec3_t up, vec3_t fwd);
-void oot_euler_yxz_from_matrix(mat3 R, float* yaw_deg, float* pitch_deg, float* roll_deg);
-void goldsrc_pose_to_oot(vec3_t pos_g,
-                         float pitch_g_deg, float yaw_g_deg, float roll_g_deg,
-                         vec3_t* pos_o, float* yaw_o_deg, float* pitch_o_deg, float* roll_o_deg);
-int16_t oot_deg_to_s16(float degrees);
-vec3_t pos_oot_to_goldsrc(vec3_t po);
-mat3 oot_matrix_from_euler(float yaw_deg, float pitch_deg, float roll_deg);
 vec3_t v_oot_to_goldsrc(vec3_t vo);
-void goldsrc_angles_from_basis(vec3_t fwd, vec3_t right, vec3_t up,
-                               float* pitch_deg, float* yaw_deg, float* roll_deg);
-void oot_pose_to_goldsrc(vec3_t pos_o,
-                         float yaw_o_deg, float pitch_o_deg, float roll_o_deg,
-                         vec3_t* pos_g, float* pitch_g_deg, float* yaw_g_deg, float* roll_g_deg);
+
 float VectorNormalize(vec3_t *v);
+
+s32 PM_SimpleRaycast(CollisionContext* colCtx, Vec3f* start, Vec3f* end, Vec3f* outPos, CollisionPoly** outPoly, int *outBgId, s32* startSolid, s32* endSolid, int ignoreBgId);
 
 #ifdef __cplusplus
 #undef this

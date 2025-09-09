@@ -197,17 +197,15 @@ pmtrace_t PM_PlayerTrace(vec3_t start, vec3_t end, int traceFlags, int ignore_pe
     vec3_t hitPos;
     CollisionPoly* poly = NULL;
     int bgId = -1;
-
+    int startSolid = false;
+    int endSolid = false;
     vec3_t start_oot = v_goldsrc_to_oot(start);
     vec3_t end_oot = v_goldsrc_to_oot(end);
 
-    // Perform the line trace (check wall, floor, and ceiling)
-    int hit = BgCheck_EntityLineTest1(&play->colCtx, &start_oot, &end_oot, &hitPos, &poly, 1, 0, 1, 1, &bgId);
+    // Perform the line trace
+    int hit = PM_SimpleRaycast(&play->colCtx, &start_oot, &end_oot, &hitPos, &poly, &bgId, &startSolid, &endSolid, &player->actor.id);
 
     vec3_t hitPos_gs = v_oot_to_goldsrc(hitPos);
-
-	/*vec3_t zero = {0,0,0};
-	EffectSsKiraKira_SpawnSmallYellow(play, &end_oot, &zero, &zero);*/
 
     if (hit && poly != NULL) {
         tr.fraction = sqrtf(
@@ -224,6 +222,7 @@ pmtrace_t PM_PlayerTrace(vec3_t start, vec3_t end, int traceFlags, int ignore_pe
         tr.endpos.z = hitPos_gs.z;
 
         // Fill in the plane normal from the poly
+		// TODO: Strongly suspect this is wrong
         tr.plane.normal.x = COLPOLY_GET_NORMAL(poly->normal.x);
         tr.plane.normal.y = COLPOLY_GET_NORMAL(poly->normal.y);
         tr.plane.normal.z = COLPOLY_GET_NORMAL(poly->normal.z);
@@ -232,14 +231,10 @@ pmtrace_t PM_PlayerTrace(vec3_t start, vec3_t end, int traceFlags, int ignore_pe
         VectorNormalize(&tr.plane.normal);
 
         // Check if start or end is inside solid
-        int startSolid = BgCheck_PosInStaticBoundingBox(&play->colCtx, &start_oot);
-        int endSolid = BgCheck_PosInStaticBoundingBox(&play->colCtx, &end_oot);
         tr.startsolid = (startSolid != 0) ? 1 : 0;
         tr.allsolid = (tr.startsolid && (endSolid != 0)) ? 1 : 0;
-        //tr.startsolid = 0;
-        //tr.allsolid = 0;
 
-        tr.ent = bgId;     // Set to bgId or 0 for world
+        tr.ent = bgId;
     } else {
         // No hit, fraction is 1, endpos is end
         tr.fraction = 1.0f;
@@ -249,7 +244,7 @@ pmtrace_t PM_PlayerTrace(vec3_t start, vec3_t end, int traceFlags, int ignore_pe
         tr.plane.normal.z = 1.0f;
         tr.startsolid = 0;
         tr.allsolid = 0;
-        tr.ent = 0;
+        tr.ent = -1;
 		tr.inopen = 1;
     }
 
@@ -324,7 +319,7 @@ qboolean PM_CheckWater ()
 	return pmove->waterlevel > 1;
 }
 
-/*void PM_CatagorizePosition (void)
+void PM_CatagorizePosition (void)
 {
 	vec3_t		point;
 	pmtrace_t		tr;
@@ -342,10 +337,11 @@ qboolean PM_CheckWater ()
 	PM_CheckWater();
 
 	vec3_t origin = pmove->origin;
-	origin.z += 1;
+	origin.z += 10;
 	point.x = pmove->origin.x;
 	point.y = pmove->origin.y;
-	point.z = pmove->origin.z - 1;
+	point.z = pmove->origin.z - 2;
+    pmove->onground = -1;
 
 	if (pmove->velocity.z > 180)   // Shooting up really fast.  Definitely not on ground.
 	{
@@ -356,32 +352,28 @@ qboolean PM_CheckWater ()
 		// Try and move down.
 		tr = pmove->PM_PlayerTrace (origin, point, PM_NORMAL, -1 );
 
-		if (tr.ent == player->actor.id)
-		{	// Don't clip against yourself.
-			pmove->onground = -1;
-			return;
-		}
-
-		// If we hit a steep plane, we are not on ground
-		if (tr.plane.normal.z < 0.7)
-			pmove->onground = -1;	// too steep
-		else
-			pmove->onground = tr.ent;  // Otherwise, point to index of ent under us.
-
-		// If we are on something...
-		if (pmove->onground != -1)
+		if (tr.fraction < 1.0f)
 		{
-			// Then we are not in water jump sequence
-			pmove->waterjumptime = 0;
-			// If we could make the move, drop us down that 1 pixel
-			if (pmove->waterlevel < 2 && !tr.startsolid && !tr.allsolid)
-				VectorCopy (tr.endpos, pmove->origin);
+			// If we hit a steep plane, we are not on ground
+			if (tr.plane.normal.z < 0.7)
+				pmove->onground = -1;	// too steep
+			else
+				pmove->onground = tr.ent;  // Otherwise, point to index of ent under us.
+
+			// If we are on something...
+			if (pmove->onground != -1)
+			{
+				// Then we are not in water jump sequence
+				pmove->waterjumptime = 0;
+				// If we could make the move, drop us down that 1 pixel
+				if (pmove->waterlevel < 2 && !tr.startsolid && !tr.allsolid)
+					VectorCopy (tr.endpos, pmove->origin);
+			}
 		}
 	}
-}*/
+}
 
-void PM_CatagorizePosition (void)
-{
+/*void PM_CatagorizePosition(void) {
     if (pmove->velocity.z > 180)   // Shooting up really fast.  Definitely not on ground.
 	{
 		pmove->onground = -1;
@@ -422,7 +414,7 @@ void PM_CatagorizePosition (void)
 			pmove->onground = -1;
 		}
 	}
-}
+}*/
 
 /*void PM_CatagorizePosition (void)
 {
@@ -914,7 +906,7 @@ int PM_FlyMove (void)
 	int			numplanes;
 	vec3_t		planes[MAX_CLIP_PLANES];
 	vec3_t		primal_velocity, original_velocity;
-	vec3_t      new_velocity;
+	vec3_t      new_velocity = {0,0,0};
 	int			i, j;
 	pmtrace_t	trace;
 	vec3_t		end;
@@ -938,17 +930,19 @@ int PM_FlyMove (void)
 
 		// Assume we can move all the way from the current origin to the
 		//  end point.
-        end.x = pmove->origin.x + time_left * pmove->velocity.x;
-        end.y = pmove->origin.y + time_left * pmove->velocity.y;
-        end.z = pmove->origin.z + time_left * pmove->velocity.z;
+		vec3_t origin = pmove->origin;
+		origin.z += 0.01f; // Bump the origin up slightly so it doesn't look like we're "inside" the ground
+        end.x = origin.x + time_left * pmove->velocity.x;
+        end.y = origin.y + time_left * pmove->velocity.y;
+        end.z = origin.z + time_left * pmove->velocity.z;
 
 		/*VectorCopy (end, pmove->origin);
 		return; // testing*/
 
 		// See if we can make it from origin to end point.
-		trace = pmove->PM_PlayerTrace (pmove->origin, end, PM_NORMAL, -1 );
+        trace = pmove->PM_PlayerTrace(origin, end, PM_NORMAL, -1);
 
-#if 0 // Sneaky: slip in slopefix here. See if speedrunners notice. /// TODO
+#if 1 // Sneaky: slip in slopefix here. See if speedrunners notice. /// TODO
 		// Check if we are stuck on the surface (HACKHACK: this solves precision error in the engine for small movements)
 		if (trace.fraction == 0.0)
 		{
@@ -956,7 +950,7 @@ int PM_FlyMove (void)
             end.x += trace.plane.normal.x * 0.001;
             end.y += trace.plane.normal.y * 0.001;
             end.z += trace.plane.normal.z * 0.001;
-			trace = pmove->PM_PlayerTrace(pmove->origin, end, PM_NORMAL, -1);
+            trace = pmove->PM_PlayerTrace(origin, end, PM_NORMAL, -1);
 		}
 #endif
 
@@ -1302,7 +1296,6 @@ usedown:
 		VectorCopy (downvel, pmove->velocity);
 	} else // copy z value from slide move
 		pmove->velocity.z = downvel.z;
-
 }
 
 void PM_AirAccelerate (vec3_t wishdir, float wishspeed, float accel)
