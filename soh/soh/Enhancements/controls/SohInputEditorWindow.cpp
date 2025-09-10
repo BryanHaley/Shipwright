@@ -1359,17 +1359,20 @@ void SohInputEditorWindow::DrawCameraControlPanel() {
         CheckboxOptions()
             .Color(THEME_COLOR)
             .Tooltip("Allows for using the mouse to control the camera (must enable Free Look), "
-                     "aim with the shield, and perform quickspin attacks (quickly rotate the mouse then press B)"));
+                     "aim with the shield, and perform quickspin attacks (quickly rotate the mouse then press B)")
+            .DefaultValue(1));
     Ship::GuiWindow::BeginGroupPanel("Aiming/First-Person Camera", ImGui::GetContentRegionAvail());
     CVarCheckbox("Right Stick Aiming", CVAR_SETTING("Controls.RightStickAim"),
                  CheckboxOptions()
                      .Color(THEME_COLOR)
-                     .Tooltip("Allows for aiming with the right stick in:\n-First-Person/C-Up view\n-Weapon Aiming"));
+                     .Tooltip("Allows for aiming with the right stick in:\n-First-Person/C-Up view\n-Weapon Aiming")
+                     .DefaultValue(1));
     if (CVarGetInteger(CVAR_SETTING("Controls.RightStickAim"), 0)) {
         CVarCheckbox("Allow moving while in first-person mode", CVAR_SETTING("MoveInFirstPerson"),
                      CheckboxOptions()
                          .Color(THEME_COLOR)
-                         .Tooltip("Changes the left stick to move the player while in first-person mode"));
+                         .Tooltip("Changes the left stick to move the player while in first-person mode")
+                         .DefaultValue(1));
     }
     CVarCheckbox("Invert Aiming X Axis", CVAR_SETTING("Controls.InvertAimingXAxis"),
                  CheckboxOptions()
@@ -1392,9 +1395,10 @@ void SohInputEditorWindow::DrawCameraControlPanel() {
     CVarCheckbox("Disable Auto-Centering in First-Person View", CVAR_SETTING("DisableFirstPersonAutoCenterView"),
                  CheckboxOptions()
                      .Color(THEME_COLOR)
-                     .Tooltip("Prevents the C-Up view from auto-centering, allowing for Gyro Aiming"));
+                     .Tooltip("Prevents the C-Up view from auto-centering, allowing for Gyro Aiming")
+                     .DefaultValue(1));
     if (CVarCheckbox("Enable Custom Aiming/First-Person sensitivity",
-                     CVAR_SETTING("FirstPersonCameraSensitivity.Enabled"), CheckboxOptions().Color(THEME_COLOR))) {
+                     CVAR_SETTING("FirstPersonCameraSensitivity.Enabled"), CheckboxOptions().Color(THEME_COLOR).DefaultValue(1))) {
         if (!CVarGetInteger(CVAR_SETTING("FirstPersonCameraSensitivity.Enabled"), 0)) {
             CVarClear(CVAR_SETTING("FirstPersonCameraSensitivity.X"));
             CVarClear(CVAR_SETTING("FirstPersonCameraSensitivity.Y"));
