@@ -3,6 +3,8 @@
 
 #include "functions.h"
 
+#include "public/bridge/consolevariablebridge.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -1742,6 +1744,39 @@ vec3_t PM_Move ( struct playermove_s *ppmove, int server, PlayState *playState, 
     // Set current play state
     play = playState;
 	player = pPlayer;
+
+	// Get CVARs
+    cl_forwardspeed = CVarGetFloat(CVAR_SETTING("hlmov.cl_forwardspeed"), 80);
+    cl_sidespeed = CVarGetFloat(CVAR_SETTING("hlmov.cl_sidespeed"), 80);
+    cl_upspeed = CVarGetFloat(CVAR_SETTING("hlmov.cl_upspeed"), 70);
+
+	sv_gravity = CVarGetFloat(CVAR_SETTING("hlmov.sv_gravity"), 25);
+    sv_stopspeed = CVarGetFloat(CVAR_SETTING("hlmov.sv_stopspeed"), 5);
+    sv_maxspeed = CVarGetFloat(CVAR_SETTING("hlmov.sv_maxspeed"), 70);
+    sv_accelerate = CVarGetFloat(CVAR_SETTING("hlmov.sv_accelerate"), 2);
+    sv_airaccelerate = CVarGetFloat(CVAR_SETTING("hlmov.sv_airaccelerate"), 1);
+    sv_friction = CVarGetFloat(CVAR_SETTING("hlmov.sv_friction"), 1);
+    sv_edgefriction = CVarGetFloat(CVAR_SETTING("hlmov.sv_edgefriction"), 2);
+    sv_stepsize = CVarGetFloat(CVAR_SETTING("hlmov.sv_stepsize"), 20);
+    sv_maxvelocity = CVarGetFloat(CVAR_SETTING("hlmov.sv_maxvelocity"), 300);
+    sv_jumpspeed = CVarGetFloat(CVAR_SETTING("hlmov.sv_jumpspeed"), 35);
+
+	sv_autohop = CVarGetInteger(CVAR_SETTING("hlmov.sv_autohop"), 1);
+
+	movevars_singleton.gravity = sv_gravity;
+    movevars_singleton.stopspeed = sv_stopspeed;
+    movevars_singleton.maxspeed = sv_maxspeed;
+    movevars_singleton.accelerate = sv_accelerate;
+    movevars_singleton.airaccelerate = sv_airaccelerate;
+    movevars_singleton.wateraccelerate = sv_wateraccelerate;
+    movevars_singleton.friction = sv_friction;
+    movevars_singleton.edgefriction = sv_edgefriction;
+    movevars_singleton.waterfriction = sv_waterfriction;
+    movevars_singleton.bounce = sv_bounce;
+    movevars_singleton.stepsize = sv_stepsize;
+    movevars_singleton.maxvelocity = sv_maxvelocity;
+    movevars_singleton.rollangle = sv_rollangle;
+    movevars_singleton.rollspeed = sv_rollspeed;
 
     // Sync position with OoT
     VectorCopy( playerPos, pmove->origin );

@@ -61,7 +61,9 @@ extern int sv_autohop;
 // Z64 -> HL types
 typedef Vec3f vec3_t;
 typedef int qboolean;
+#ifndef BYTE_DEFINED
 typedef int byte;
+#endif
 typedef struct { float m[3][3]; } mat3;
 
 extern struct playermove_s *pmove;

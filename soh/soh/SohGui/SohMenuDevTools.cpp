@@ -1,5 +1,8 @@
 #include "SohMenu.h"
 
+#define BYTE_DEFINED 1
+#include "src/overlays/actors/ovl_player_actor/hlmov_bridge.h"
+
 namespace SohGui {
 
 extern std::shared_ptr<SohMenu> mSohMenu;
@@ -197,6 +200,157 @@ void SohMenu::AddMenuDevTools() {
         .CVar(CVAR_WINDOW("SohGfxDebugger"))
         .WindowName("GfxDebugger##SoH")
         .Options(WindowButtonOptions().Tooltip("Enables the separate Gfx Debugger Window."));
+}
+
+void SohMenu::AddMenuHLMov() {
+    // Add Dev Tools Menu
+    AddMenuEntry("HL Mov", CVAR_SETTING("Menu.HLMovSidebarSection"));
+
+    // General
+    AddSidebarEntry("HL Mov", "General", 4);
+    WidgetPath path = { "HL Mov", "General", SECTION_COLUMN_1 };
+
+    AddWidget(path, "Popout Menu", WIDGET_CVAR_CHECKBOX)
+        .CVar("gSettings.Menu.Popout")
+        .Options(CheckboxOptions().Tooltip("Changes the menu display from overlay to windowed."));
+
+    AddWidget(path, "HL Movement", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_SETTING("hlmov.HLMovEnabled"))
+        .Options(
+            CheckboxOptions().Tooltip("Enable HL Movement (must have first person movement enabled in camera settings)."));
+
+    AddWidget(path, "Autohop", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_SETTING("hlmov.sv_autohop"))
+        .Options(CheckboxOptions().Tooltip(
+            "Automatically jump when holding the spacebar down."));
+
+    AddWidget(path, "cl_forwardspeed", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar(CVAR_SETTING("hlmov.cl_forwardspeed"))
+        .Options(FloatSliderOptions()
+                     .DefaultValue(80)
+                     .Min(1.0f)
+                     .Max(500.0f)
+                     .Step(1.0f)
+                     .Tooltip(
+            "Forward movement speed."));
+    AddWidget(path, "cl_sidespeed", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar(CVAR_SETTING("hlmov.cl_sidespeed"))
+        .Options(FloatSliderOptions()
+                     .DefaultValue(80)
+                     .Min(1.0f)
+                     .Max(500.0f)
+                     .Step(1.0f)
+                     .Tooltip("Side movement speed."));
+    AddWidget(path, "cl_upspeed", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar(CVAR_SETTING("hlmov.cl_upspeed"))
+        .Options(FloatSliderOptions()
+                     .DefaultValue(70)
+                     .Min(1.0f)
+                     .Max(500.0f)
+                     .Step(1.0f)
+                     .Tooltip("Up/down movement speed."));
+    AddWidget(path, "sv_maxspeed", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar(CVAR_SETTING("hlmov.sv_maxspeed"))
+        .Options(FloatSliderOptions()
+                     .DefaultValue(70)
+                     .Min(1.0f)
+                     .Max(1000.0f)
+                     .Step(1.0f)
+                     .Tooltip("Max ground speed"));
+    AddWidget(path, "sv_jumpspeed", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar(CVAR_SETTING("hlmov.sv_jumpspeed"))
+        .Options(FloatSliderOptions()
+                     .DefaultValue(35)
+                     .Min(1.0f)
+                     .Max(200.0f)
+                     .Step(1.0f)
+                     .Tooltip("Jump velocity."));
+
+
+    AddWidget(path, "sv_gravity", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar(CVAR_SETTING("hlmov.sv_gravity"))
+        .Options(FloatSliderOptions()
+                     .DefaultValue(25)
+                     .Min(1.0f)
+                     .Max(100.0f)
+                     .Step(1.0f)
+                     .Tooltip("Gravity"));
+    AddWidget(path, "sv_stopspeed", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar(CVAR_SETTING("hlmov.sv_stopspeed"))
+        .Options(FloatSliderOptions()
+                     .DefaultValue(5)
+                     .Min(1.0f)
+                     .Max(100.0f)
+                     .Step(1.0f)
+                     .Tooltip("Stop speed"));
+    AddWidget(path, "sv_accelerate", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar(CVAR_SETTING("hlmov.sv_accelerate"))
+        .Options(FloatSliderOptions()
+                     .DefaultValue(2)
+                     .Min(0.1f)
+                     .Max(10.0f)
+                     .Step(0.1f)
+                     .Tooltip("Ground acceleration"));
+    AddWidget(path, "sv_airaccelerate", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar(CVAR_SETTING("hlmov.sv_airaccelerate"))
+        .Options(FloatSliderOptions()
+                     .DefaultValue(1)
+                     .Min(0.1f)
+                     .Max(10.0f)
+                     .Step(0.1f)
+                     .Tooltip("Air acceleration"));
+    AddWidget(path, "sv_friction", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar(CVAR_SETTING("hlmov.sv_friction"))
+        .Options(FloatSliderOptions()
+                     .DefaultValue(1)
+                     .Min(0.1f)
+                     .Max(20.0f)
+                     .Step(0.1f)
+                     .Tooltip("Ground friction"));
+    AddWidget(path, "sv_edgefriction", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar(CVAR_SETTING("hlmov.sv_edgefriction"))
+        .Options(FloatSliderOptions()
+                     .DefaultValue(2)
+                     .Min(1.0f)
+                     .Max(100.0f)
+                     .Step(1.0f)
+                     .Tooltip("Edge friction"));
+    AddWidget(path, "sv_stepsize", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar(CVAR_SETTING("hlmov.sv_stepsize"))
+        .Options(FloatSliderOptions()
+                     .DefaultValue(20)
+                     .Min(1.0f)
+                     .Max(100.0f)
+                     .Step(1.0f)
+                     .Tooltip("Step size"));
+    AddWidget(path, "sv_maxvelocity", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar(CVAR_SETTING("hlmov.sv_maxvelocity"))
+        .Options(FloatSliderOptions()
+                     .DefaultValue(300)
+                     .Min(1.0f)
+                     .Max(2000.0f)
+                     .Step(1.0f)
+                     .Tooltip("Maximum velocity"));
+
+    AddWidget(path, "Reset", WIDGET_BUTTON)
+        .Options(ButtonOptions().Tooltip("Reset CVARs").Size(Sizes::Inline))
+        .Callback([](WidgetInfo& info) {
+            CVarSetInteger(CVAR_SETTING("hlmov.HLMovEnabled"), 1);
+            CVarSetInteger(CVAR_SETTING("hlmov.sv_autohop"), 1);
+            CVarSetFloat(CVAR_SETTING("hlmov.cl_forwardspeed"), 80);
+            CVarSetFloat(CVAR_SETTING("hlmov.cl_sidespeed"), 80);
+            CVarSetFloat(CVAR_SETTING("hlmov.cl_upspeed"), 70);
+            CVarSetFloat(CVAR_SETTING("hlmov.sv_maxspeed"), 70);
+            CVarSetFloat(CVAR_SETTING("hlmov.sv_jumpspeed"), 35);
+            CVarSetFloat(CVAR_SETTING("hlmov.sv_gravity"), 25);
+            CVarSetFloat(CVAR_SETTING("hlmov.sv_stopspeed"), 5);
+            CVarSetFloat(CVAR_SETTING("hlmov.sv_accelerate"), 2);
+            CVarSetFloat(CVAR_SETTING("hlmov.sv_airaccelerate"), 1);
+            CVarSetFloat(CVAR_SETTING("hlmov.sv_friction"), 1);
+            CVarSetFloat(CVAR_SETTING("hlmov.sv_edgefriction"), 2);
+            CVarSetFloat(CVAR_SETTING("hlmov.sv_stepsize"), 20);
+            CVarSetFloat(CVAR_SETTING("hlmov.sv_maxvelocity"), 300);
+        });
 }
 
 } // namespace SohGui

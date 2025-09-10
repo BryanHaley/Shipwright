@@ -49,7 +49,7 @@ float sv_airaccelerate = 1;		    // Same for when in open air
 float sv_wateraccelerate = 5;		// Same for when in water
 float sv_stepsize = 20;
 float sv_jumpspeed = 40;			// default jump speed
-float sv_maxvelocity = 500; // maximum server velocity.
+float sv_maxvelocity = 250;         // maximum server velocity.
 
 float sv_noclipspeed = 320; 		// Max allowed speed
 float sv_friction = 4;

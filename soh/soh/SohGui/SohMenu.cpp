@@ -89,6 +89,7 @@ void SohMenu::InitElement() {
     AddMenuNetwork();
 #endif
     AddMenuDevTools();
+    AddMenuHLMov();
 
     if (CVarGetInteger(CVAR_SETTING("Menu.SidebarSearch"), 0)) {
         InsertSidebarSearch();

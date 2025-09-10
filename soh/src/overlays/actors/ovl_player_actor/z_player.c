@@ -44,9 +44,6 @@
 // This is called "adjusted" for now.
 #define PLAYER_ANIM_ADJUSTED_SPEED (2.0f / 3.0f)
 
-// TEMP
-int inFirstPerson = 0;
-
 typedef enum {
     /* 0x00 */ KNOB_ANIM_ADULT_L,
     /* 0x01 */ KNOB_ANIM_CHILD_L,
@@ -12102,7 +12099,7 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
                 this->actor.velocity.z += this->pushedSpeed * Math_CosS(this->pushedYaw);
             }
 
-            if (!inFirstPerson)
+            if (!(CVarGetInteger(CVAR_SETTING("hlmov.HLMovEnabled"), 1)) || !(this->stateFlags1 & PLAYER_STATE1_FIRST_PERSON))
             {
                 Actor_UpdatePos(&this->actor);
                 Player_ProcessSceneCollision(play, this);
@@ -12843,58 +12840,64 @@ s16 func_8084ABD8(PlayState* play, Player* this, s32 arg2, s16 arg3) {
         // Example: Mapping input to cmd
         // This assumes you have an input struct with axes and button states
 
-        usercmd_t cmd;
-        memset(&cmd, 0, sizeof(cmd));
+        if (CVarGetInteger(CVAR_SETTING("hlmov.HLMovEnabled"), 1)) {
+            usercmd_t cmd;
+            memset(&cmd, 0, sizeof(cmd));
 
-        // Fill viewangles (in degrees or radians as appropriate)
-        s16 pitch = Camera_GetCamDirPitch(GET_ACTIVE_CAM(play));
-        s16 yaw = Camera_GetCamDirYaw(GET_ACTIVE_CAM(play));
-        Camera *cam = Play_GetCamera(play, 0);
-        cmd.viewangles.x = (pitch / 65536.0f) * -360.0f; // up/down
-        cmd.viewangles.y = (yaw / 65536.0f) * -360.0f; // left/right
-        cmd.viewangles.z = 0; // roll (usually 0)
+            // Fill viewangles (in degrees or radians as appropriate)
+            s16 pitch = Camera_GetCamDirPitch(GET_ACTIVE_CAM(play));
+            s16 yaw = Camera_GetCamDirYaw(GET_ACTIVE_CAM(play));
+            Camera *cam = Play_GetCamera(play, 0);
+            cmd.viewangles.x = (pitch / 65536.0f) * -360.0f; // up/down
+            cmd.viewangles.y = (yaw / 65536.0f) * -360.0f; // left/right
+            cmd.viewangles.z = 0; // roll (usually 0)
 
-        // Movement axes (forward, side, up)
-        Vec3f moveDir = { sControlInput->rel.stick_x, sControlInput->rel.stick_y, 0 };
-        VectorNormalize(&moveDir);
-        cmd.forwardmove = moveDir.y * cl_forwardspeed; // e.g. +400 for forward, -400 for back
-        cmd.sidemove    = moveDir.x * -cl_sidespeed; // e.g. +400 for right, -400 for left
-        cmd.upmove      = CHECK_BTN_ALL(sControlInput->cur.button, BTN_L) ? cl_upspeed : 0;      // e.g. +320 for jump, -320 for crouch
+            // Movement axes (forward, side, up)
+            Vec3f moveDir = { sControlInput->rel.stick_x, sControlInput->rel.stick_y, 0 };
+            VectorNormalize(&moveDir);
+            cmd.forwardmove = moveDir.y * cl_forwardspeed; // e.g. +400 for forward, -400 for back
+            cmd.sidemove    = moveDir.x * -cl_sidespeed; // e.g. +400 for right, -400 for left
+            cmd.upmove      = CHECK_BTN_ALL(sControlInput->cur.button, BTN_L) ? cl_upspeed : 0;      // e.g. +320 for jump, -320 for crouch
 
-        // Buttons (bitmask)
-        cmd.buttons = 0;
-        //cmd.buttons |= (IN_USE     * (CHECK_BTN_ALL(sControlInput->rel.button, BTN_A) ? 1 : 0));
-        // cmd.buttons |= (IN_ATTACK  * (CHECK_BTN_ALL(sControlInput->cur.button, BTN_B) ? 1 : 0));
-        cmd.buttons |= (IN_JUMP    * (CHECK_BTN_ALL(sControlInput->cur.button, BTN_L) ? 1 : 0));
-        //cmd.buttons |= (IN_DUCK    * (CHECK_BTN_ALL(sControlInput->rel.button, BTN_Z) ? 1 : 0));
-        cmd.buttons |= (IN_FORWARD * sControlInput->rel.stick_y > 0 ? 1 : 0);
-        cmd.buttons |= (IN_BACK    * sControlInput->rel.stick_y < 0 ? 1 : 0);
-        cmd.buttons |= (IN_LEFT    * sControlInput->rel.stick_x < 0 ? 1 : 0);
-        cmd.buttons |= (IN_RIGHT   * sControlInput->rel.stick_x > 0 ? 1 : 0);
+            // Buttons (bitmask)
+            cmd.buttons = 0;
+            //cmd.buttons |= (IN_USE     * (CHECK_BTN_ALL(sControlInput->rel.button, BTN_A) ? 1 : 0));
+            // cmd.buttons |= (IN_ATTACK  * (CHECK_BTN_ALL(sControlInput->cur.button, BTN_B) ? 1 : 0));
+            cmd.buttons |= (IN_JUMP    * (CHECK_BTN_ALL(sControlInput->cur.button, BTN_L) ? 1 : 0));
+            //cmd.buttons |= (IN_DUCK    * (CHECK_BTN_ALL(sControlInput->rel.button, BTN_Z) ? 1 : 0));
+            cmd.buttons |= (IN_FORWARD * sControlInput->rel.stick_y > 0 ? 1 : 0);
+            cmd.buttons |= (IN_BACK    * sControlInput->rel.stick_y < 0 ? 1 : 0);
+            cmd.buttons |= (IN_LEFT    * sControlInput->rel.stick_x < 0 ? 1 : 0);
+            cmd.buttons |= (IN_RIGHT   * sControlInput->rel.stick_x > 0 ? 1 : 0);
 
-        // Testing
-        //cmd.buttons |= IN_FORWARD;
-        //cmd.forwardmove = 320;
-        inFirstPerson = 1;
+            // Testing
+            //cmd.buttons |= IN_FORWARD;
+            //cmd.forwardmove = 320;
 
-        // Timing
-        cmd.msec = (int)((1000.0f / R_UPDATE_RATE) / 5); // Duration of this command in ms
+            // Timing
+            cmd.msec = (int)((1000.0f / R_UPDATE_RATE) / 5); // Duration of this command in ms
 
-        // Light level, impulse, weaponselect, etc. can be set as needed
-        cmd.lightlevel = 0;
-        cmd.impulse = 0;
-        cmd.weaponselect = 0;
+            // Light level, impulse, weaponselect, etc. can be set as needed
+            cmd.lightlevel = 0;
+            cmd.impulse = 0;
+            cmd.weaponselect = 0;
 
-        if (!pmove)
-        {
-            PM_Init();
+            if (!pmove)
+            {
+                PM_Init();
+            }
+
+            this->actor.world.pos = v_goldsrc_to_oot(PM_Move(pmove, 1, play, this, v_oot_to_goldsrc(this->actor.world.pos), cmd));
+            this->actor.world.pos = v_goldsrc_to_oot(PM_Move(pmove, 1, play, this, v_oot_to_goldsrc(this->actor.world.pos), cmd));
+            this->actor.world.pos = v_goldsrc_to_oot(PM_Move(pmove, 1, play, this, v_oot_to_goldsrc(this->actor.world.pos), cmd));
+            this->actor.world.pos = v_goldsrc_to_oot(PM_Move(pmove, 1, play, this, v_oot_to_goldsrc(this->actor.world.pos), cmd));
+            this->actor.world.pos = v_goldsrc_to_oot(PM_Move(pmove, 1, play, this, v_oot_to_goldsrc(this->actor.world.pos), cmd));
         }
-
-        this->actor.world.pos = v_goldsrc_to_oot(PM_Move(pmove, 1, play, this, v_oot_to_goldsrc(this->actor.world.pos), cmd));
-        this->actor.world.pos = v_goldsrc_to_oot(PM_Move(pmove, 1, play, this, v_oot_to_goldsrc(this->actor.world.pos), cmd));
-        this->actor.world.pos = v_goldsrc_to_oot(PM_Move(pmove, 1, play, this, v_oot_to_goldsrc(this->actor.world.pos), cmd));
-        this->actor.world.pos = v_goldsrc_to_oot(PM_Move(pmove, 1, play, this, v_oot_to_goldsrc(this->actor.world.pos), cmd));
-        this->actor.world.pos = v_goldsrc_to_oot(PM_Move(pmove, 1, play, this, v_oot_to_goldsrc(this->actor.world.pos), cmd));
+        else
+        {
+            this->actor.world.pos.x += (relX2 * movementSpeed) + this->actor.colChkInfo.displacement.x;
+            this->actor.world.pos.z += (relY2 * movementSpeed) + this->actor.colChkInfo.displacement.z;
+        }
     }
 
     this->unk_6AE_rotFlags |= UNK6AE_ROT_FOCUS_Y;
