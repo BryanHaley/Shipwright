@@ -246,8 +246,6 @@ s32 PM_SimpleRaycast(CollisionContext* colCtx, Vec3f* start, Vec3f* end, Vec3f* 
         }
     }
 
-    return hit; // Only static polys for now
-
     // --- Dyna polys ---
     for (int bgId = 0; bgId < BG_ACTOR_MAX; ++bgId) {
         if (!(colCtx->dyna.bgActorFlags[bgId] & 1)) {
