@@ -224,6 +224,15 @@ void SohMenu::AddMenuHLMov() {
         .Options(CheckboxOptions().Tooltip(
             "Automatically jump when holding the spacebar down."));
 
+    AddWidget(path, "cl_fps_fov_multiplier", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar(CVAR_SETTING("hlmov.cl_fps_fov_multiplier"))
+        .Options(FloatSliderOptions()
+                     .DefaultValue(2)
+                     .Min(0.1f)
+                     .Max(3.0f)
+                     .Step(0.1f)
+                     .Tooltip("FOV multiplier for FPS camera"));
+
     AddWidget(path, "cl_forwardspeed", WIDGET_CVAR_SLIDER_FLOAT)
         .CVar(CVAR_SETTING("hlmov.cl_forwardspeed"))
         .Options(FloatSliderOptions()

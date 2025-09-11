@@ -39,6 +39,8 @@ PlayState* gPlayState;
 s16 firstInit = 0;
 s16 gEnPartnerId;
 
+int inFirstPerson = 0;
+
 void Play_SpawnScene(PlayState* play, s32 sceneId, s32 spawn);
 
 // This macro prints the number "1" with a file and line number if R_ENABLE_PLAY_LOGS is enabled.
@@ -1393,7 +1395,10 @@ void Play_Draw(PlayState* play) {
         POLY_OPA_DISP = Play_SetFog(play, POLY_OPA_DISP);
         POLY_XLU_DISP = Play_SetFog(play, POLY_XLU_DISP);
 
-        func_800AA460(&play->view, play->view.fovy, play->view.zNear, play->lightCtx.fogFar);
+        func_800AA460(&play->view,
+                      play->view.fovy * (inFirstPerson ? CVarGetFloat(CVAR_SETTING("hlmov.cl_fps_fov_multiplier"), 2) : 1),
+                      play->view.zNear,
+                      play->lightCtx.fogFar);
         func_800AAA50(&play->view, 15);
 
         // Flip the projections and invert culling for the OPA and XLU display buffers

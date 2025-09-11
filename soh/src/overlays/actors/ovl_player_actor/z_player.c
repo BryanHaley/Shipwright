@@ -44,6 +44,8 @@
 // This is called "adjusted" for now.
 #define PLAYER_ANIM_ADJUSTED_SPEED (2.0f / 3.0f)
 
+extern int inFirstPerson;
+
 typedef enum {
     /* 0x00 */ KNOB_ANIM_ADULT_L,
     /* 0x01 */ KNOB_ANIM_CHILD_L,
@@ -1696,6 +1698,7 @@ void func_80832440(PlayState* play, Player* this) {
     this->stateFlags1 &= ~(PLAYER_STATE1_HANGING_OFF_LEDGE | PLAYER_STATE1_CLIMBING_LEDGE | PLAYER_STATE1_FIRST_PERSON |
                            PLAYER_STATE1_CLIMBING_LADDER);
     this->stateFlags2 &= ~(PLAYER_STATE2_MOVING_DYNAPOLY | PLAYER_STATE2_GRABBED_BY_ENEMY | PLAYER_STATE2_CRAWLING);
+    inFirstPerson = this->stateFlags1 & PLAYER_STATE1_FIRST_PERSON;
 
     this->actor.shape.rot.x = 0;
     this->actor.shape.yOffset = 0.0f;
@@ -3346,6 +3349,7 @@ s32 Player_SetupAction(PlayState* play, Player* this, PlayerActionFunc actionFun
     this->stateFlags2 &= ~(PLAYER_STATE2_HOPPING | PLAYER_STATE2_OCARINA_PLAYING | PLAYER_STATE2_IDLE_FIDGET);
     this->stateFlags3 &=
         ~(PLAYER_STATE3_MIDAIR | PLAYER_STATE3_FINISHED_ATTACKING | PLAYER_STATE3_FLYING_WITH_HOOKSHOT);
+    inFirstPerson = this->stateFlags1 & PLAYER_STATE1_FIRST_PERSON;
 
     this->av1.actionVar1 = 0;
     this->av2.actionVar2 = 0;
@@ -6118,6 +6122,7 @@ s32 Player_ActionHandler_13(Player* this, PlayState* play) {
                     func_8083B010(this);
                 }
                 this->stateFlags1 |= PLAYER_STATE1_FIRST_PERSON;
+                inFirstPerson = this->stateFlags1 & PLAYER_STATE1_FIRST_PERSON;
                 Sfx_PlaySfxCentered(NA_SE_SY_CAMERA_ZOOM_UP);
                 Player_ZeroSpeedXZ(this);
                 return 1;
@@ -6432,6 +6437,7 @@ void func_8083C148(Player* this, PlayState* play) {
     }
 
     this->stateFlags1 &= ~(PLAYER_STATE1_HANGING_OFF_LEDGE | PLAYER_STATE1_CLIMBING_LEDGE | PLAYER_STATE1_FIRST_PERSON);
+    inFirstPerson = this->stateFlags1 & PLAYER_STATE1_FIRST_PERSON;
 }
 
 /**
@@ -13110,6 +13116,7 @@ s32 func_8084B3CC(PlayState* play, Player* this) {
         }
 
         this->stateFlags1 |= PLAYER_STATE1_FIRST_PERSON;
+        inFirstPerson = this->stateFlags1 & PLAYER_STATE1_FIRST_PERSON;
         Player_AnimPlayOnce(play, this, Player_GetIdleAnim(this));
         Player_ZeroSpeedXZ(this);
         func_8083B010(this);
@@ -13932,6 +13939,7 @@ void Player_Action_8084CC98(Player* this, PlayState* play) {
                 Player_IsZTargeting(this)) {
                 this->unk_6AD = 0;
                 this->stateFlags1 &= ~PLAYER_STATE1_FIRST_PERSON;
+                inFirstPerson = this->stateFlags1 & PLAYER_STATE1_FIRST_PERSON;
             } else {
                 this->upperLimbRot.y = func_8084ABD8(play, this, 1, -5000) - this->actor.shape.rot.y;
                 this->upperLimbRot.y += 5000;
