@@ -338,7 +338,7 @@ void Player_Action_8084F9C0(Player* this, PlayState* play);
 void Player_Action_8084FA54(Player* this, PlayState* play);
 void Player_Action_8084FB10(Player* this, PlayState* play);
 void Player_Action_8084FBF4(Player* this, PlayState* play);
-void Player_Action_808502D0(Player* this, PlayState* play);
+void Player_Action_MeleeAttackUpdate(Player* this, PlayState* play);
 void Player_Action_808505DC(Player* this, PlayState* play);
 void Player_Action_8085063C(Player* this, PlayState* play);
 void Player_Action_8085076C(Player* this, PlayState* play);
@@ -4423,7 +4423,7 @@ void func_80837948(PlayState* play, Player* this, s32 arg2) {
     u32 dmgFlags;
     s32 temp;
 
-    Player_SetupAction(play, this, Player_Action_808502D0, 0);
+    Player_SetupAction(play, this, Player_Action_MeleeAttackUpdate, 0);
     this->unk_844 = 8;
     if (!((arg2 >= PLAYER_MWA_FLIPSLASH_FINISH) && (arg2 <= PLAYER_MWA_JUMPSLASH_FINISH))) {
         func_80832318(this);
@@ -15306,7 +15306,7 @@ s32 Player_ActionHandler_7(Player* this, PlayState* play) {
 
 static Vec3f D_80854A40 = { 0.0f, 40.0f, 45.0f };
 
-void Player_Action_808502D0(Player* this, PlayState* play) {
+void Player_Action_MeleeAttackUpdate(Player* this, PlayState* play) {
     struct_80854190* sp44 = &D_80854190[this->meleeWeaponAnimation];
 
     this->stateFlags2 |= PLAYER_STATE2_DISABLE_ROTATION_Z_TARGET;
