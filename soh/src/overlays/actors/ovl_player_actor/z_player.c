@@ -13088,6 +13088,51 @@ void Player_Action_8084B1D8(Player* this, PlayState* play) {
     if (CVarGetInteger(CVAR_ENHANCEMENT("DpadEquips"), 0) != 0) {
         buttonsToCheck |= BTN_DUP | BTN_DDOWN | BTN_DLEFT | BTN_DRIGHT;
     }
+
+    int swingPress = CHECK_BTN_ALL(sControlInput->press.button, BTN_B);
+
+    // Don't kick out of first person if we press a C button with a stick equipped
+    if (inFirstPerson)
+    {
+        int btPress = 0;
+        if ((sControlInput->press.button & BTN_CLEFT)  && C_BTN_ITEM(0) == ITEM_STICK)
+        {
+            buttonsToCheck &= ~BTN_CLEFT;
+            btPress = BTN_CLEFT;
+        }
+
+        if ((sControlInput->press.button & BTN_CDOWN)  && C_BTN_ITEM(1) == ITEM_STICK)
+        {
+            buttonsToCheck &= ~BTN_CDOWN;
+            btPress = BTN_CDOWN;
+        }
+
+        if ((sControlInput->press.button & BTN_CRIGHT) && C_BTN_ITEM(2) == ITEM_STICK)
+        {
+            buttonsToCheck &= ~BTN_CRIGHT;
+            btPress = BTN_CRIGHT;
+        }
+
+        if (btPress)
+        {
+            if (this->heldItemAction == PLAYER_IA_DEKU_STICK)
+            {
+                swingPress = 1;
+            }
+            else if (AMMO(ITEM_STICK) != 0)
+            {
+                // Equip deku stick
+                this->heldItemButton = btPress;
+                Player_UseItem(play, this, ITEM_STICK);
+                Player_UseItem(play, this, ITEM_STICK);
+            }
+            else
+            {
+                Sfx_PlaySfxCentered(NA_SE_SY_ERROR);
+            }
+        }
+    }
+
     if ((this->csAction != 0) || (this->unk_6AD == 0) || (this->unk_6AD >= 4) || Player_UpdateHostileLockOn(this) ||
         (this->focusActor != NULL) || !func_8083AD4C(play, this) ||
         (((this->unk_6AD == 2) &&
@@ -13101,21 +13146,21 @@ void Player_Action_8084B1D8(Player* this, PlayState* play) {
             this->unk_6AE_rotFlags |= UNK6AE_ROT_FOCUS_X | UNK6AE_ROT_FOCUS_Y | UNK6AE_ROT_UPPER_X;
         } else {
             this->actor.shape.rot.y = func_8084ABD8(play, this, 0, 0);
-
-            // If B is pressed, start a sword swing even in first person
-            if (CHECK_BTN_ALL(sControlInput->press.button, BTN_B)) {
-                // Ensure a sword is "equipped" if we're not already holding one
-                if (this->heldItemAction != PLAYER_IA_SWORD_MASTER && this->heldItemAction != PLAYER_IA_SWORD_KOKIRI) {
+            // If B is pressed, start a swing even in first person
+            if (swingPress) {
+                if (this->heldItemAction != PLAYER_IA_DEKU_STICK && this->heldItemAction != PLAYER_IA_SWORD_MASTER && this->heldItemAction != PLAYER_IA_SWORD_KOKIRI) {
+                    // Ensure a sword is "equipped" if we're not already holding one
                     // Picks Master/Kokiri automatically and sets itemAction/model group
                     func_80846720(play, this, /*play SFX*/ 1);
                 }
 
                 // Choose which swing (right slash, stab, etc.) based on stick/Z
-                s32 mwa = func_80837818(this);              // returns a PLAYER_MWA_* value
-                func_80837948(play, this, mwa);             // arms hitboxes & picks the animation
+                this->meleeWeaponAnimation = func_80837818(this);      // returns a PLAYER_MWA_* value
+                func_80837948(play, this, this->meleeWeaponAnimation); // arms hitboxes & picks the animation
 
                 // Drive the actual attack logic/animation
                 Player_SetupAction(play, this, Player_Action_MeleeAttackUpdate, 1);
+
                 return; // let the attack action take over this frame
             }
         }
