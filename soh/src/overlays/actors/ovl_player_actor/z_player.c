@@ -1678,32 +1678,36 @@ void Player_DetachHeldActor(PlayState* play, Player* this) {
 }
 
 void func_80832440(PlayState* play, Player* this) {
-    if ((this->stateFlags1 & PLAYER_STATE1_CARRYING_ACTOR) && (this->heldActor == NULL)) {
-        if (this->interactRangeActor != NULL) {
-            if (this->getItemId == GI_NONE) {
+    // This is where we get knocked out of first person upon taking damage
+    if (!inFirstPerson)
+    {
+        if ((this->stateFlags1 & PLAYER_STATE1_CARRYING_ACTOR) && (this->heldActor == NULL)) {
+            if (this->interactRangeActor != NULL) {
+                if (this->getItemId == GI_NONE) {
+                    this->stateFlags1 &= ~PLAYER_STATE1_CARRYING_ACTOR;
+                    this->interactRangeActor = NULL;
+                }
+            } else {
                 this->stateFlags1 &= ~PLAYER_STATE1_CARRYING_ACTOR;
-                this->interactRangeActor = NULL;
             }
-        } else {
-            this->stateFlags1 &= ~PLAYER_STATE1_CARRYING_ACTOR;
         }
+
+        func_80832318(this);
+        this->unk_6AD = 0;
+
+        func_80832340(play, this);
+        func_8005B1A4(Play_GetCamera(play, 0));
+
+        this->stateFlags1 &= ~(PLAYER_STATE1_HANGING_OFF_LEDGE | PLAYER_STATE1_CLIMBING_LEDGE | PLAYER_STATE1_FIRST_PERSON |
+                            PLAYER_STATE1_CLIMBING_LADDER);
+        this->stateFlags2 &= ~(PLAYER_STATE2_MOVING_DYNAPOLY | PLAYER_STATE2_GRABBED_BY_ENEMY | PLAYER_STATE2_CRAWLING);
+        inFirstPerson = this->stateFlags1 & PLAYER_STATE1_FIRST_PERSON;
+
+        this->actor.shape.rot.x = 0;
+        this->actor.shape.yOffset = 0.0f;
+
+        this->unk_845 = this->unk_844 = 0;
     }
-
-    func_80832318(this);
-    this->unk_6AD = 0;
-
-    func_80832340(play, this);
-    func_8005B1A4(Play_GetCamera(play, 0));
-
-    this->stateFlags1 &= ~(PLAYER_STATE1_HANGING_OFF_LEDGE | PLAYER_STATE1_CLIMBING_LEDGE | PLAYER_STATE1_FIRST_PERSON |
-                           PLAYER_STATE1_CLIMBING_LADDER);
-    this->stateFlags2 &= ~(PLAYER_STATE2_MOVING_DYNAPOLY | PLAYER_STATE2_GRABBED_BY_ENEMY | PLAYER_STATE2_CRAWLING);
-    inFirstPerson = this->stateFlags1 & PLAYER_STATE1_FIRST_PERSON;
-
-    this->actor.shape.rot.x = 0;
-    this->actor.shape.yOffset = 0.0f;
-
-    this->unk_845 = this->unk_844 = 0;
 }
 
 /**
@@ -4678,7 +4682,7 @@ void func_80837C0C(PlayState* play, Player* this, s32 damageResponseType, f32 sp
 
     this->stateFlags1 |= PLAYER_STATE1_DAMAGED;
 
-    if (anim != NULL) {
+    if (!inFirstPerson && anim != NULL) {
         Player_AnimPlayOnceAdjusted(play, this, anim);
     }
 }
@@ -6123,7 +6127,10 @@ s32 Player_ActionHandler_13(Player* this, PlayState* play) {
                 }
                 this->stateFlags1 |= PLAYER_STATE1_FIRST_PERSON;
                 inFirstPerson = this->stateFlags1 & PLAYER_STATE1_FIRST_PERSON;
-                Sfx_PlaySfxCentered(NA_SE_SY_CAMERA_ZOOM_UP);
+                if (!inFirstPerson)
+                {
+                    Sfx_PlaySfxCentered(NA_SE_SY_CAMERA_ZOOM_UP);
+                }
                 Player_ZeroSpeedXZ(this);
                 return 1;
             } else {
@@ -13077,14 +13084,14 @@ void Player_Action_8084B1D8(Player* this, PlayState* play) {
         Player_UpdateUpperBody(this, play);
     }
 
-    u16 buttonsToCheck = BTN_A | BTN_B | BTN_R | BTN_CUP | BTN_CLEFT | BTN_CRIGHT | BTN_CDOWN;
+    u16 buttonsToCheck = BTN_A | BTN_R | BTN_CUP | BTN_CLEFT | BTN_CRIGHT | BTN_CDOWN;
     if (CVarGetInteger(CVAR_ENHANCEMENT("DpadEquips"), 0) != 0) {
         buttonsToCheck |= BTN_DUP | BTN_DDOWN | BTN_DLEFT | BTN_DRIGHT;
     }
     if ((this->csAction != 0) || (this->unk_6AD == 0) || (this->unk_6AD >= 4) || Player_UpdateHostileLockOn(this) ||
         (this->focusActor != NULL) || !func_8083AD4C(play, this) ||
         (((this->unk_6AD == 2) &&
-          (CHECK_BTN_ANY(sControlInput->press.button, BTN_A | BTN_B | BTN_R) || Player_FriendlyLockOnOrParallel(this) ||
+          (CHECK_BTN_ANY(sControlInput->press.button, BTN_A | BTN_R) || Player_FriendlyLockOnOrParallel(this) ||
            (!func_8002DD78(this) && !func_808334B4(this)))) ||
          ((this->unk_6AD == 1) && CHECK_BTN_ANY(sControlInput->press.button, buttonsToCheck)))) {
         func_8083C148(this, play);
@@ -13094,6 +13101,23 @@ void Player_Action_8084B1D8(Player* this, PlayState* play) {
             this->unk_6AE_rotFlags |= UNK6AE_ROT_FOCUS_X | UNK6AE_ROT_FOCUS_Y | UNK6AE_ROT_UPPER_X;
         } else {
             this->actor.shape.rot.y = func_8084ABD8(play, this, 0, 0);
+
+            // If B is pressed, start a sword swing even in first person
+            if (CHECK_BTN_ALL(sControlInput->press.button, BTN_B)) {
+                // Ensure a sword is "equipped" if we're not already holding one
+                if (this->heldItemAction != PLAYER_IA_SWORD_MASTER && this->heldItemAction != PLAYER_IA_SWORD_KOKIRI) {
+                    // Picks Master/Kokiri automatically and sets itemAction/model group
+                    func_80846720(play, this, /*play SFX*/ 1);
+                }
+
+                // Choose which swing (right slash, stab, etc.) based on stick/Z
+                s32 mwa = func_80837818(this);              // returns a PLAYER_MWA_* value
+                func_80837948(play, this, mwa);             // arms hitboxes & picks the animation
+
+                // Drive the actual attack logic/animation
+                Player_SetupAction(play, this, Player_Action_MeleeAttackUpdate, 1);
+                return; // let the attack action take over this frame
+            }
         }
     }
 
