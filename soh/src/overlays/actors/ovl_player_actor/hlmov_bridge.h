@@ -61,9 +61,6 @@ extern int sv_autohop;
 // Z64 -> HL types
 typedef Vec3f vec3_t;
 typedef int qboolean;
-#ifndef BYTE_DEFINED
-typedef int byte;
-#endif
 typedef struct { float m[3][3]; } mat3;
 
 extern struct playermove_s *pmove;
@@ -71,17 +68,17 @@ extern struct playermove_s *pmove;
 typedef struct usercmd_s
 {
 	short	lerp_msec;      // Interpolation time on client
-	byte	msec;           // Duration in ms of command
+	int	msec;           // Duration in ms of command
 	vec3_t	viewangles;     // Command view angles.
 
 // intended velocities
 	float	forwardmove;    // Forward velocity.
 	float	sidemove;       // Sideways velocity.
 	float	upmove;         // Upward velocity.
-	byte	lightlevel;     // Light level at spot where we are standing.
+	int	lightlevel;     // Light level at spot where we are standing.
 	unsigned short  buttons;  // Attack buttons
-	byte    impulse;          // Impulse command issued.
-	byte	weaponselect;	// Current weapon id
+	int    impulse;          // Impulse command issued.
+	int	weaponselect;	// Current weapon id
 
 // Experimental player impact stuff.
 	int		impact_index;

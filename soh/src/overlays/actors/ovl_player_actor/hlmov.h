@@ -193,8 +193,8 @@ typedef struct physent_s
 	// Complex collision detection.
 	float			frame;
 	int				sequence;
-	byte			controller[4];
-	byte			blending[2];
+	int			controller[4];
+	int			blending[2];
 
 	int				movetype;
 	int				takedamage;
@@ -369,9 +369,9 @@ struct playermove_s
 	void			*(*PM_HullForBsp)( physent_t *pe, vec3_t offset );
 	float			(*PM_TraceModel)( physent_t *pEnt, vec3_t start, vec3_t end, trace_t *trace );
 	int				(*COM_FileSize)(char *filename);
-	byte			*(*COM_LoadFile) (char *path, int usehunk, int *pLength);
+	int			*(*COM_LoadFile) (char *path, int usehunk, int *pLength);
 	void			(*COM_FreeFile) ( void *buffer );
-	char			*(*memfgets)( byte *pMemFile, int fileSize, int *pFilePos, char *pBuffer, int bufferSize );
+	char			*(*memfgets)( int *pMemFile, int fileSize, int *pFilePos, char *pBuffer, int bufferSize );
 
 	// Functions
 	// Run functions for this frame?
