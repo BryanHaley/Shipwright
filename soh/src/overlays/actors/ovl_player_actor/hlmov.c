@@ -274,38 +274,72 @@ pmtrace_t PM_PlayerTrace_Custom(vec3_t start, vec3_t end, int traceFlags, int ig
     // Perform the line trace
     int hit = PM_SimpleRaycast(&play->colCtx, &start_oot, &end_oot, &hitPos, &poly, &bgId, &startSolid, &endSolid, &player->actor.id);
 
+	const float offset = 14.0f;
+
+	if (!hit || poly == NULL) {
+		// Try again slightly forward
+		end_oot = v_goldsrc_to_oot(end);
+		end_oot.z += offset;
+		hit = PM_SimpleRaycast(&play->colCtx, &start_oot, &end_oot, &hitPos, &poly, &bgId, &startSolid, &endSolid, &player->actor.id);
+	}
+
+	if (!hit || poly == NULL) {
+		// Try again slightly back
+		end_oot = v_goldsrc_to_oot(end);
+		end_oot.z -= offset;
+		hit = PM_SimpleRaycast(&play->colCtx, &start_oot, &end_oot, &hitPos, &poly, &bgId, &startSolid, &endSolid, &player->actor.id);
+	}
+
+	if (!hit || poly == NULL) {
+		// Try again slightly right
+		end_oot = v_goldsrc_to_oot(end);
+		end_oot.x += offset;
+		hit = PM_SimpleRaycast(&play->colCtx, &start_oot, &end_oot, &hitPos, &poly, &bgId, &startSolid, &endSolid, &player->actor.id);
+	}
+
+	if (!hit || poly == NULL) {
+		// Try again slightly left
+		end_oot = v_goldsrc_to_oot(end);
+		end_oot.x -= offset;
+		hit = PM_SimpleRaycast(&play->colCtx, &start_oot, &end_oot, &hitPos, &poly, &bgId, &startSolid, &endSolid, &player->actor.id);
+	}
+
 	if (!hit || poly == NULL) {
 		// Try again slightly forward and right
-		end_oot.z += 1.0f;
-		end_oot.x += 1.0f;
+		end_oot.z += offset/2;
+		end_oot.x += offset/2;
 		hit = PM_SimpleRaycast(&play->colCtx, &start_oot, &end_oot, &hitPos, &poly, &bgId, &startSolid, &endSolid, &player->actor.id);
 	}
 
 	if (!hit || poly == NULL) {
 		// Try again slightly forward and left
 		end_oot = v_goldsrc_to_oot(end);
-		end_oot.z += 1.0f;
-		end_oot.x -= 1.0f;
+		end_oot.z += offset/2;
+		end_oot.x -= offset/2;
 		hit = PM_SimpleRaycast(&play->colCtx, &start_oot, &end_oot, &hitPos, &poly, &bgId, &startSolid, &endSolid, &player->actor.id);
 	}
 
 	if (!hit || poly == NULL) {
 		// Try again slightly back and left
 		end_oot = v_goldsrc_to_oot(end);
-		end_oot.z -= 1.0f;
-		end_oot.x -= 1.0f;
+		end_oot.z -= offset/2;
+		end_oot.x -= offset/2;
 		hit = PM_SimpleRaycast(&play->colCtx, &start_oot, &end_oot, &hitPos, &poly, &bgId, &startSolid, &endSolid, &player->actor.id);
 	}
 
 	if (!hit || poly == NULL) {
 		// Try again slightly back and right
 		end_oot = v_goldsrc_to_oot(end);
-		end_oot.z -= 1.0f;
-		end_oot.x += 1.0f;
+		end_oot.z -= offset/2;
+		end_oot.x += offset/2;
 		hit = PM_SimpleRaycast(&play->colCtx, &start_oot, &end_oot, &hitPos, &poly, &bgId, &startSolid, &endSolid, &player->actor.id);
 	}
 
     vec3_t hitPos_gs = v_oot_to_goldsrc(hitPos);
+
+	// fudge this
+	hitPos_gs.x = start.x;
+	hitPos_gs.y = start.y;
 
     if (hit && poly != NULL) {
         tr.fraction = sqrtf(
