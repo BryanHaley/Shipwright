@@ -274,6 +274,37 @@ pmtrace_t PM_PlayerTrace_Custom(vec3_t start, vec3_t end, int traceFlags, int ig
     // Perform the line trace
     int hit = PM_SimpleRaycast(&play->colCtx, &start_oot, &end_oot, &hitPos, &poly, &bgId, &startSolid, &endSolid, &player->actor.id);
 
+	if (!hit || poly == NULL) {
+		// Try again slightly forward and right
+		end_oot.z += 1.0f;
+		end_oot.x += 1.0f;
+		hit = PM_SimpleRaycast(&play->colCtx, &start_oot, &end_oot, &hitPos, &poly, &bgId, &startSolid, &endSolid, &player->actor.id);
+	}
+
+	if (!hit || poly == NULL) {
+		// Try again slightly forward and left
+		end_oot = v_goldsrc_to_oot(end);
+		end_oot.z += 1.0f;
+		end_oot.x -= 1.0f;
+		hit = PM_SimpleRaycast(&play->colCtx, &start_oot, &end_oot, &hitPos, &poly, &bgId, &startSolid, &endSolid, &player->actor.id);
+	}
+
+	if (!hit || poly == NULL) {
+		// Try again slightly back and left
+		end_oot = v_goldsrc_to_oot(end);
+		end_oot.z -= 1.0f;
+		end_oot.x -= 1.0f;
+		hit = PM_SimpleRaycast(&play->colCtx, &start_oot, &end_oot, &hitPos, &poly, &bgId, &startSolid, &endSolid, &player->actor.id);
+	}
+
+	if (!hit || poly == NULL) {
+		// Try again slightly back and right
+		end_oot = v_goldsrc_to_oot(end);
+		end_oot.z -= 1.0f;
+		end_oot.x += 1.0f;
+		hit = PM_SimpleRaycast(&play->colCtx, &start_oot, &end_oot, &hitPos, &poly, &bgId, &startSolid, &endSolid, &player->actor.id);
+	}
+
     vec3_t hitPos_gs = v_oot_to_goldsrc(hitPos);
 
     if (hit && poly != NULL) {
